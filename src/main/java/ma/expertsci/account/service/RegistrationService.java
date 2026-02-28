@@ -10,6 +10,7 @@ import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ public class RegistrationService {
 
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public RegisterResponseDTO register(RegisterRequestDTO request) throws DataAlreadyExistException {
 
@@ -38,7 +40,7 @@ public class RegistrationService {
 
         User user = User.builder()
                 .email(request.getEmail())
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .role(UserRole.OWNER)
@@ -61,7 +63,7 @@ public class RegistrationService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
 
-        if (!user.getPassword().equals(request.getPassword())) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new InvalidCredentialsException("Invalid email or password");
         }
 

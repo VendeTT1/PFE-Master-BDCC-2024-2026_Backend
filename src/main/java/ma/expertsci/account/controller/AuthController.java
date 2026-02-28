@@ -20,6 +20,7 @@ public class AuthController {
     private  final RegistrationService registrationService;
 
 
+
     @PostMapping("/register")
     public ResponseEntity<RegisterResponseDTO> register(
             @Valid @RequestBody RegisterRequestDTO request
