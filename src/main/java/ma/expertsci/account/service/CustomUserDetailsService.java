@@ -1,6 +1,5 @@
-package ma.expertsci.security;
+package ma.expertsci.account.service;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.entities.User;
 import ma.expertsci.account.repository.UserRepository;

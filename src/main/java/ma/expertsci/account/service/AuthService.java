@@ -10,6 +10,7 @@ import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
+import ma.expertsci.security.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +26,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
 
     public RegisterResponseDTO register(RegisterRequestDTO request) throws DataAlreadyExistException {
@@ -71,21 +73,10 @@ public class AuthService {
                 )
         );
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
+        String token = jwtService.generateToken(request.getEmail());
 
-//        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-//            throw new InvalidCredentialsException("Invalid email or password");
-//        } checking user manually
 
-        return LoginResponseDTO.builder()
-                .userId(user.getId())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .role(user.getRole().name())
-                .message("Login successful")
-                .build();
+        return LoginResponseDTO.builder().token(token).build();
     }
 
 
