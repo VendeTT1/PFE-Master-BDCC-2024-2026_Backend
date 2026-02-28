@@ -10,6 +10,8 @@ import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,11 +19,13 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-public class RegistrationService {
+public class AuthService {
 
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+
 
     public RegisterResponseDTO register(RegisterRequestDTO request) throws DataAlreadyExistException {
 
@@ -60,12 +64,19 @@ public class RegistrationService {
 
     public LoginResponseDTO login(LoginRequestDTO request) throws InvalidCredentialsException {
 
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getEmail(),
+                        request.getPassword()
+                )
+        );
+
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new InvalidCredentialsException("Invalid email or password");
-        }
+//        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+//            throw new InvalidCredentialsException("Invalid email or password");
+//        } checking user manually
 
         return LoginResponseDTO.builder()
                 .userId(user.getId())

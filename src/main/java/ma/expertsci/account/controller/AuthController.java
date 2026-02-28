@@ -8,7 +8,7 @@ import ma.expertsci.account.dto.registration.RegisterResponseDTO;
 import ma.expertsci.account.dto.registration.RegisterRequestDTO;
 import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
-import ma.expertsci.account.service.RegistrationService;
+import ma.expertsci.account.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private  final RegistrationService registrationService;
+    private  final AuthService registrationService;
 
 
 
