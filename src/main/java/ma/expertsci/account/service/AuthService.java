@@ -1,5 +1,6 @@
 package ma.expertsci.account.service;
 
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.login.LoginResponseDTO;
@@ -13,6 +14,8 @@ import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.security.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -66,15 +69,16 @@ public class AuthService {
 
     public LoginResponseDTO login(LoginRequestDTO request) throws InvalidCredentialsException {
 
-        authenticationManager.authenticate(
+        Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
                         request.getPassword()
                 )
         );
 
-        String token = jwtService.generateToken(request.getEmail());
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
+        String token = jwtService.generateToken(userDetails);
 
         return LoginResponseDTO.builder().token(token).build();
     }
