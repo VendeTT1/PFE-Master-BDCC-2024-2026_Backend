@@ -4,13 +4,19 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.login.LoginResponseDTO;
+import ma.expertsci.account.dto.login.RefreshTokenRequestDTO;
 import ma.expertsci.account.dto.registration.RegisterResponseDTO;
 import ma.expertsci.account.dto.registration.RegisterRequestDTO;
+import ma.expertsci.account.entities.RefreshToken;
+import ma.expertsci.account.entities.User;
 import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.service.AuthService;
+import ma.expertsci.account.service.RefreshTokenService;
+import ma.expertsci.security.JwtService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 
 //@PreAuthorize("#id == authentication.principal.id") -> This allows user to access only his own resource.
@@ -22,7 +28,9 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private  final AuthService registrationService;
-
+    private final RefreshTokenService refreshTokenService;
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
 
 
     @PostMapping("/register")
@@ -50,6 +58,39 @@ public class AuthController {
     public String userEndpoint() {
         return "Only users";
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponseDTO> refreshToken(
+            @RequestBody RefreshTokenRequestDTO request) {
+
+        RefreshToken refreshToken =
+                refreshTokenService.verifyToken(
+                        request.getRefreshToken());
+
+        User user = refreshToken.getUser();
+
+        String newAccessToken =
+                jwtService.generateToken(
+                        userDetailsService
+                                .loadUserByUsername(user.getEmail()));
+
+        return ResponseEntity.ok(
+                LoginResponseDTO.builder()
+                        .accessToken(newAccessToken)
+                        .refreshToken(refreshToken.getToken())
+                        .build()
+        );
+    }
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(
+            @RequestBody RefreshTokenRequestDTO request) {
+
+        refreshTokenService.revokeToken(
+                request.getRefreshToken());
+
+        return ResponseEntity.ok("Logged out successfully");
+    }
+
 
 }
 

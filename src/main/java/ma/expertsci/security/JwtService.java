@@ -15,7 +15,7 @@ import java.util.function.Function;
 public class JwtService {
 
     private final String SECRET_KEY = "my-super-secret-key-my-super-secret-key";
-    private final long EXPIRATION = 1000 * 60 * 60; // 1 hour
+    private final long EXPIRATION = 1000 * 60 * 15; // 15min
 
     private Key getSignKey() {
         return Keys.hmacShaKeyFor(SECRET_KEY.getBytes());

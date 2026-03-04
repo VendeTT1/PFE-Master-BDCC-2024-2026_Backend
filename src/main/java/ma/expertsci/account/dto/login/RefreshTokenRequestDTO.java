@@ -1,11 +1,9 @@
 package ma.expertsci.account.dto.login;
 
-import lombok.Builder;
+
 import lombok.Data;
 
 @Data
-@Builder
-public class LoginResponseDTO {
-    private String accessToken;
+public class RefreshTokenRequestDTO {
     private String refreshToken;
 }
