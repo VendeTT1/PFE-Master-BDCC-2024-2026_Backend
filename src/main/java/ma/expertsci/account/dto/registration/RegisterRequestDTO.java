@@ -26,7 +26,7 @@ public class RegisterRequestDTO {
 
     @NotBlank
     private String lastName;
-
-    @NotBlank
-    private UserRole userRole;
+//
+//    @NotBlank
+//    private UserRole userRole;
 }

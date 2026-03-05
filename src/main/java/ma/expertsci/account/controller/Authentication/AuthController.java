@@ -54,7 +54,7 @@ public class AuthController {
     }
 
     @PreAuthorize("hasRole('STAFF')")
-    @GetMapping("/user")
+    @GetMapping("/staff")
     public String userEndpoint() {
         return "Only users";
     }

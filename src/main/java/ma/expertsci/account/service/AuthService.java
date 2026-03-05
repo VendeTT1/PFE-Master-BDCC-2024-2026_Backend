@@ -38,9 +38,9 @@ public class AuthService {
             throw new DataAlreadyExistException("Email already exists");
         }
 
-        if (request.getUserRole() == UserRole.STAFF) {
-            throw new IllegalArgumentException("Staff cannot self register");
-        }
+//        if (request.getUserRole() == UserRole.STAFF) {
+//            throw new IllegalArgumentException("Staff cannot self register");
+//        }
 
         Company company = Company.builder()
                 .name(request.getCompanyName())
