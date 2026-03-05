@@ -11,6 +11,7 @@ import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.security.JwtService;
+import ma.expertsci.subscriptions.service.SubscriptionService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -30,6 +31,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final SubscriptionService subscriptionService;
 
 
     public RegisterResponseDTO register(RegisterRequestDTO request) throws DataAlreadyExistException {
@@ -50,6 +52,8 @@ public class AuthService {
                 .build();
 
         company = companyRepository.save(company);
+
+        subscriptionService.initializeTrial(company);
 
         User user = User.builder()
                 .email(request.getEmail())

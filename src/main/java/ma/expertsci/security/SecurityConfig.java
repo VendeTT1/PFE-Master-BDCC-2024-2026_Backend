@@ -28,14 +28,15 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
 
-
-
                         // Role-based URL protection
                         .requestMatchers("/api/auth/admin")
                         .hasRole("SUPER_ADMIN")
 
                         .requestMatchers("/api/auth/staff")
                         .hasRole("STAFF")
+
+                        .requestMatchers("/api/subscription")
+                        .hasRole("OWNER")
 
                         // Public endpoints
                         .requestMatchers("/api/auth/**",
