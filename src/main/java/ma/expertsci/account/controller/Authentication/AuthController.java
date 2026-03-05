@@ -1,4 +1,4 @@
-package ma.expertsci.account.controller;
+package ma.expertsci.account.controller.Authentication;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -53,7 +53,7 @@ public class AuthController {
         return "Only admins";
     }
 
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('STAFF')")
     @GetMapping("/user")
     public String userEndpoint() {
         return "Only users";

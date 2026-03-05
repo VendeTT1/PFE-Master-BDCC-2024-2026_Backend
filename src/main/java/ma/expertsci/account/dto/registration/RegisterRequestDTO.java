@@ -3,6 +3,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import ma.expertsci.account.entities.UserRole;
 
 @Data
 public class RegisterRequestDTO {
@@ -25,4 +26,7 @@ public class RegisterRequestDTO {
 
     @NotBlank
     private String lastName;
+
+    @NotBlank
+    private UserRole userRole;
 }

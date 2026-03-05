@@ -1,6 +1,5 @@
 package ma.expertsci.account.service;
 
-import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.login.LoginResponseDTO;
@@ -10,7 +9,6 @@ import ma.expertsci.account.entities.*;
 import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.repository.CompanyRepository;
-import ma.expertsci.account.repository.RefreshTokenRepository;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.security.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -38,6 +36,10 @@ public class AuthService {
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new DataAlreadyExistException("Email already exists");
+        }
+
+        if (request.getUserRole() == UserRole.STAFF) {
+            throw new IllegalArgumentException("Staff cannot self register");
         }
 
         Company company = Company.builder()

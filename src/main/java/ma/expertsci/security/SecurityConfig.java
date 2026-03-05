@@ -34,8 +34,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/admin")
                         .hasRole("SUPER_ADMIN")
 
-                        .requestMatchers("/api/auth/user")
-                        .hasRole("USER")
+                        .requestMatchers("/api/auth/staff")
+                        .hasRole("STAFF")
 
                         // Public endpoints
                         .requestMatchers("/api/auth/**",
