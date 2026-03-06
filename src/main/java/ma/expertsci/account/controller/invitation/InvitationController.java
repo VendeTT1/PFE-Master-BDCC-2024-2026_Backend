@@ -1,6 +1,7 @@
 package ma.expertsci.account.controller.invitation;
 
 import lombok.RequiredArgsConstructor;
+import ma.expertsci.account.dto.invitation.AcceptInvitationRequestDTO;
 import ma.expertsci.account.dto.invitation.InvitationRequestDTO;
 import ma.expertsci.account.dto.invitation.InvitationResponseDTO;
 import ma.expertsci.account.entities.company.Company;
@@ -41,5 +42,15 @@ public class InvitationController {
         return ResponseEntity.ok(
                 invitationService.inviteStaff(request.getEmail(), company)
         );
+    }
+
+    @PostMapping("/accept")
+    public ResponseEntity<String> acceptInvitation(
+            @RequestBody AcceptInvitationRequestDTO request
+    ) {
+
+        invitationService.acceptInvitation(request);
+
+        return ResponseEntity.ok("Account created successfully");
     }
 }
