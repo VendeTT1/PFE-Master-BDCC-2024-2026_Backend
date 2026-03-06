@@ -1,6 +1,6 @@
 package ma.expertsci.account.service;
 
-import ma.expertsci.account.entities.Company;
+import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.repository.CompanyRepository;
 import org.springframework.stereotype.Service;
 

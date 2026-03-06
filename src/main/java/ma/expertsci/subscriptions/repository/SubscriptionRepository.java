@@ -1,6 +1,6 @@
 package ma.expertsci.subscriptions.repository;
 
-import ma.expertsci.account.entities.Company;
+import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.subscriptions.entities.Subscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 

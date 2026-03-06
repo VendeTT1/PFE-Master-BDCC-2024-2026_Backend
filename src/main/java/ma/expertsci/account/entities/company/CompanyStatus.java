@@ -1,4 +1,4 @@
-package ma.expertsci.account.entities;
+package ma.expertsci.account.entities.company;
 
 public enum CompanyStatus {
     SUSPENDED,ACTIVE,INACTIVE

@@ -1,7 +1,7 @@
 package ma.expertsci.account.service;
 
 import lombok.RequiredArgsConstructor;
-import ma.expertsci.account.entities.User;
+import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.repository.UserRepository;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;

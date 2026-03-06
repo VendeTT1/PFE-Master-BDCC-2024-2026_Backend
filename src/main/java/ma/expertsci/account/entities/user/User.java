@@ -1,4 +1,4 @@
-package ma.expertsci.account.entities;
+package ma.expertsci.account.entities.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import ma.expertsci.account.entities.company.Company;
 
 import java.time.LocalDateTime;
 

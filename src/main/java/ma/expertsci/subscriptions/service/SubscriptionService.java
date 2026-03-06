@@ -1,8 +1,8 @@
 package ma.expertsci.subscriptions.service;
 
 import lombok.RequiredArgsConstructor;
-import ma.expertsci.account.entities.Company;
-import ma.expertsci.account.entities.User;
+import ma.expertsci.account.entities.company.Company;
+import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.subscriptions.dto.SubscriptionResponseDTO;
 import ma.expertsci.subscriptions.entities.PlanType;

@@ -2,7 +2,7 @@ package ma.expertsci.account.service;
 
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.entities.RefreshToken;
-import ma.expertsci.account.entities.User;
+import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.repository.RefreshTokenRepository;
 import org.springframework.stereotype.Service;
 

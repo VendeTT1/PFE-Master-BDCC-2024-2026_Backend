@@ -1,4 +1,4 @@
-package ma.expertsci.subscriptions.entities;
+package ma.expertsci.account.entities.invitation;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -10,27 +10,27 @@ import ma.expertsci.account.entities.company.Company;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "subscriptions")
+@Table(name = "invitations")
 @Data
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
-public class Subscription {
+public class Invitation {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne
-    @JoinColumn(name = "company_id", nullable = false, unique = true)
+    private String email;
+
+    private String token;
+
+    @Enumerated(EnumType.STRING)
+    private InvitationStatus status;
+
+    private LocalDateTime expirationDate;
+
+    @ManyToOne
+    @JoinColumn(name = "company_id")
     private Company company;
-
-    @Enumerated(EnumType.STRING)
-    private PlanType planType;
-
-    @Enumerated(EnumType.STRING)
-    private SubscriptionStatus status;
-
-    private LocalDateTime startDate;
-
-    private LocalDateTime endDate;
 }

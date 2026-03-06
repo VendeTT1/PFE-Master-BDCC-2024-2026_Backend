@@ -1,4 +1,4 @@
-package ma.expertsci.account.entities;
+package ma.expertsci.account.entities.user;
 
 public enum UserStatus {
     ACTIVE, INACTIVE

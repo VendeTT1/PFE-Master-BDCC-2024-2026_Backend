@@ -1,6 +1,7 @@
 package ma.expertsci.account.entities;
 import jakarta.persistence.*;
 import lombok.*;
+import ma.expertsci.account.entities.user.User;
 
 import java.time.Instant;
 

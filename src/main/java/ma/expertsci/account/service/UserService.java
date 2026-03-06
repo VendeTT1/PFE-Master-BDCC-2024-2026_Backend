@@ -1,6 +1,6 @@
 package ma.expertsci.account.service;
 
-import ma.expertsci.account.entities.User;
+import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.repository.UserRepository;
 import org.springframework.stereotype.Service;
 

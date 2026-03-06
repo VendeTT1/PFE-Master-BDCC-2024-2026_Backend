@@ -1,4 +1,4 @@
-package ma.expertsci.account.controller.Authentication;
+package ma.expertsci.account.controller.authentication;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -8,7 +8,7 @@ import ma.expertsci.account.dto.login.RefreshTokenRequestDTO;
 import ma.expertsci.account.dto.registration.RegisterResponseDTO;
 import ma.expertsci.account.dto.registration.RegisterRequestDTO;
 import ma.expertsci.account.entities.RefreshToken;
-import ma.expertsci.account.entities.User;
+import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.service.AuthService;

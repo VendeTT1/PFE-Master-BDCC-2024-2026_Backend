@@ -1,10 +1,11 @@
-package ma.expertsci.account.entities;
+package ma.expertsci.account.entities.company;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import ma.expertsci.account.entities.user.User;
 
 import java.time.LocalDateTime;
 import java.util.List;

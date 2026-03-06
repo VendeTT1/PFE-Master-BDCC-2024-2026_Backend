@@ -1,4 +1,4 @@
-package ma.expertsci.account.entities;
+package ma.expertsci.account.entities.user;
 
 public enum UserRole {
     SUPER_ADMIN,OWNER, STAFF
