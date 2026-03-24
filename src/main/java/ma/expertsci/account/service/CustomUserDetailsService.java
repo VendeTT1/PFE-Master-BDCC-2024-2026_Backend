@@ -2,6 +2,7 @@ package ma.expertsci.account.service;
 
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.entities.user.User;
+import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.UserRepository;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .password(user.getPassword())
 //                .roles(user.getRole().name())
                 .authorities("ROLE_" + user.getRole().name())
+                .disabled(user.getStatus() == UserStatus.INACTIVE) // this make sure that data are loaded only to active users
                 .build();
     }
 }

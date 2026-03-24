@@ -24,8 +24,8 @@ public class InvitationController {
     private final InvitationService invitationService;
     private final UserRepository userRepository;
 
-    @PostMapping("/invite")
     @PreAuthorize("hasRole('OWNER')")
+    @PostMapping("/invite")
     public ResponseEntity<InvitationResponseDTO> invite(
             @RequestBody InvitationRequestDTO request,
             Authentication authentication
