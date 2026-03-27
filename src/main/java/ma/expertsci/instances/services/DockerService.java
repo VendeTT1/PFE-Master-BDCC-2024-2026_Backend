@@ -62,6 +62,10 @@ public class DockerService {
             Process process = pb.start();
             process.waitFor();
 
+            Thread.sleep(30000);
+
+            initializeOdooInstance(instanceDir, dbName, instanceName);
+
             // 7️⃣ Build URL
             String url = "http://localhost:" + port;
 
@@ -80,4 +84,65 @@ public class DockerService {
     private int generatePort() {
         return 8000 + new Random().nextInt(1000);
     }
+
+
+    private void initializeOdooInstance(Path instanceDir, String dbName, String instanceName) throws Exception {
+
+        ProcessBuilder pb = new ProcessBuilder(
+                "docker", "compose", "run", "--rm",
+                instanceName+"_app",
+                "odoo",
+                "-c", "/etc/odoo/odoo.conf",
+                "-d", dbName,
+                "-i", "base,sale,purchase,inventory,point_of_sale",
+                "--without-demo=all",
+                "--stop-after-init"
+        );
+
+        pb.directory(instanceDir.toFile());
+        pb.inheritIO(); // shows logs in console
+
+        Process process = pb.start();
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0) {
+            throw new RuntimeException("Odoo initialization failed");
+        }
+    }
+
+
+    public void startInstanceContainer(String instanceName) throws Exception {
+
+        Path instanceDir = Paths.get("instances/" + instanceName);
+
+        ProcessBuilder pb = new ProcessBuilder(
+                "docker", "compose", "up", "-d"
+        );
+
+        pb.directory(instanceDir.toFile());
+        pb.inheritIO();
+
+        Process process = pb.start();
+        process.waitFor();
+    }
+    public void stopInstanceContainer(String instanceName) throws Exception {
+
+        Path instanceDir = Paths.get("instances/" + instanceName);
+
+        ProcessBuilder pb = new ProcessBuilder(
+                "docker", "compose", "down"
+        );
+
+        pb.directory(instanceDir.toFile());
+        pb.inheritIO();
+
+        Process process = pb.start();
+        process.waitFor();
+    }
+    public void restartInstance(String instanceName) throws Exception {
+
+        stopInstanceContainer(instanceName);
+        startInstanceContainer(instanceName);
+    }
+
 }

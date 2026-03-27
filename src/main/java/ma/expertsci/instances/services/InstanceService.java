@@ -12,6 +12,10 @@ import ma.expertsci.instances.entities.InstanceStatus;
 import ma.expertsci.instances.repository.InstanceRepository;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class InstanceService {
@@ -60,5 +64,58 @@ public class InstanceService {
                 .url(instance.getUrl())
                 .status(instance.getStatus().name())
                 .build();
+    }
+
+    private Instance getInstanceForUser(String email, Long instanceId) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow();
+
+        Instance instance = instanceRepository.findById(instanceId)
+                .orElseThrow();
+
+        if (!instance.getCompany().getId().equals(user.getCompany().getId())) {
+            throw new RuntimeException("Unauthorized access to instance");
+        }
+
+        return instance;
+    }
+
+    public void startInstance(String email, Long instanceId) throws Exception {
+
+        Instance instance = getInstanceForUser(email, instanceId);
+
+        dockerService.startInstanceContainer(instance.getName());
+
+        instance.setStatus(InstanceStatus.RUNNING);
+        instanceRepository.save(instance);
+    }
+    public void stopInstance(String email, Long instanceId) throws Exception {
+
+        Instance instance = getInstanceForUser(email, instanceId);
+
+        dockerService.stopInstanceContainer(instance.getName());
+
+        instance.setStatus(InstanceStatus.STOPPED);
+        instanceRepository.save(instance);
+    }
+    public void restartInstance(String email, Long instanceId) throws Exception {
+
+        Instance instance = getInstanceForUser(email, instanceId);
+
+        dockerService.restartInstance(instance.getName());
+
+        instance.setStatus(InstanceStatus.RUNNING);
+        instanceRepository.save(instance);
+    }
+    public List<InstanceResponseDTO> getInstances(String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow();
+
+        return instanceRepository.findByCompany(user.getCompany())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 }

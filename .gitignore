@@ -35,7 +35,6 @@ build/
 #doc#
 readme.md
 
-
-/src/main/resources/application.properties
-./docker/**
-./instances/**
+src/main/resources/application.properties
+docker/**
+instances/**
