@@ -66,7 +66,7 @@ public class InstanceService {
                 .build();
     }
 
-    private Instance getInstanceForUser(String email, Long instanceId) {
+    public Instance getInstanceForUser(String email, Long instanceId) {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow();

@@ -68,4 +68,15 @@ public class JwtService {
                 .parseClaimsJws(token)
                 .getBody();
     }
+
+    public String generateOdooToken(String email, String instanceName) {
+
+        return Jwts.builder()
+                .setSubject(email)
+                .claim("instance", instanceName)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 60 * 1000)) // 1 min
+                .signWith(getSignKey())
+                .compact();
+    }
 }
