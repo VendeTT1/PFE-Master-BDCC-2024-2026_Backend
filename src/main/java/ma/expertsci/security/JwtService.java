@@ -69,10 +69,11 @@ public class JwtService {
                 .getBody();
     }
 
-    public String generateOdooToken(String email, String instanceName) {
+    public String generateOdooToken(String email, String role, String instanceName) {
 
         return Jwts.builder()
                 .setSubject(email)
+                .claim("role", role)
                 .claim("instance", instanceName)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 60 * 1000)) // 1 min

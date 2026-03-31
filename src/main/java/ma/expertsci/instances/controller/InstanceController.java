@@ -1,6 +1,8 @@
 package ma.expertsci.instances.controller;
 
 import lombok.RequiredArgsConstructor;
+import ma.expertsci.account.entities.user.User;
+import ma.expertsci.account.service.UserService;
 import ma.expertsci.instances.dto.CreatedInstanceRequestDTO;
 import ma.expertsci.instances.dto.InstanceResponseDTO;
 import ma.expertsci.instances.entities.Instance;
@@ -21,6 +23,7 @@ public class InstanceController {
 
     private final InstanceService instanceService;
     private final JwtService jwtService;
+    private final UserService userService;
 
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/create")
@@ -66,7 +69,6 @@ public class InstanceController {
     public ResponseEntity<List<InstanceResponseDTO>> list(Authentication auth) {
         return ResponseEntity.ok(instanceService.getInstances(auth.getName()));
     }
-
     @GetMapping("/{id}/access")
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<String> accessInstance(
@@ -76,12 +78,21 @@ public class InstanceController {
 
         Instance instance = instanceService.getInstanceForUser(auth.getName(), id);
 
+        //Extract user role from Spring Security
+        String role = auth.getAuthorities()
+                .stream()
+                .findFirst()
+                .map(grantedAuthority -> grantedAuthority.getAuthority().replace("ROLE_", ""))
+                .orElse("STAFF"); // fallback safety
+
         String token = jwtService.generateOdooToken(
                 auth.getName(),
+                role,
                 instance.getName()
         );
 
-        String url = instance.getUrl() + "/saas-login?token=" + token;
+        String url = instance.getUrl() + "/saas-login?db=" + instance.getName() + "_db&token=" + token;
+//        String url = instance.getUrl() + "/saas-login?token=" + token;
 
         return ResponseEntity.ok(url);
     }

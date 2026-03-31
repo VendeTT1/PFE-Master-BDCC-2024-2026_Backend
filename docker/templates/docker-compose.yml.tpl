@@ -25,6 +25,7 @@ services:
     volumes:
       - ${INSTANCE_NAME}_odoo_data:/var/lib/odoo
       - ./odoo.conf:/etc/odoo/odoo.conf
+      - C:/Users/VendeTTa/IdeaProjects/PFE-MASTER/custom_odoo_addon:/mnt/extra-addons
     networks:
       - odoo_net_${INSTANCE_NAME}
 

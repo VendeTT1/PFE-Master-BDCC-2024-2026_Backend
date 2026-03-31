@@ -35,6 +35,10 @@ public class DockerService {
             String odooConfigTemplate = Files.readString(
                     Paths.get(TEMPLATE_PATH + "odoo.conf.tpl"));
 
+            // to install jwt python package for sso
+            String dockerFileTemplate = Files.readString(
+                    Paths.get(TEMPLATE_PATH + "Dockerfile.tpl"));
+
             // 4️⃣ Replace variables
             String compose = dockerComposeTemplate
                     .replace("${INSTANCE_NAME}", instanceName)
@@ -47,9 +51,12 @@ public class DockerService {
                     .replace("${DB_NAME}", dbName)
                     .replace("${DB_PASSWORD}", dbPassword);
 
+            String dockerFile = dockerFileTemplate;
+
             // 5️⃣ Write files
             Files.writeString(instanceDir.resolve("docker-compose.yml"), compose);
             Files.writeString(instanceDir.resolve("odoo.conf"), odooConf);
+            Files.writeString(instanceDir.resolve("Dockerfile"), dockerFile);
 
             // 6️⃣ Run docker-compose
             ProcessBuilder pb = new ProcessBuilder(
