@@ -28,30 +28,30 @@ public class InstanceController {
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/create")
     public ResponseEntity<InstanceResponseDTO> create(
-            Authentication auth,
-            @RequestBody CreatedInstanceRequestDTO request
+            Authentication auth
+//            @RequestBody CreatedInstanceRequestDTO request
     ) {
         return ResponseEntity.ok(
-                instanceService.createInstance(auth.getName(), request)
+                instanceService.createInstance(auth.getName())
         );
     }
 
-    @PostMapping("/{id}/start")
     @PreAuthorize("hasRole('OWNER')")
+    @PostMapping("/{id}/start")
     public ResponseEntity<String> start(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.startInstance(auth.getName(), id);
         return ResponseEntity.ok("Instance started");
     }
 
-    @PostMapping("/{id}/stop")
     @PreAuthorize("hasRole('OWNER')")
+    @PostMapping("/{id}/stop")
     public ResponseEntity<String> stop(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.stopInstance(auth.getName(), id);
         return ResponseEntity.ok("Instance stopped");
     }
 
-    @PostMapping("/{id}/restart")
     @PreAuthorize("hasRole('OWNER')")
+    @PostMapping("/{id}/restart")
     public ResponseEntity<String> restart(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.restartInstance(auth.getName(), id);
         return ResponseEntity.ok("Instance restarted");
@@ -64,13 +64,13 @@ public class InstanceController {
 //        return ResponseEntity.ok("Instance deleted");
 //    }
 
-    @GetMapping
     @PreAuthorize("hasRole('OWNER')")
+    @GetMapping
     public ResponseEntity<List<InstanceResponseDTO>> list(Authentication auth) {
         return ResponseEntity.ok(instanceService.getInstances(auth.getName()));
     }
-    @GetMapping("/{id}/access")
     @PreAuthorize("hasRole('OWNER')")
+    @GetMapping("/{id}/access")
     public ResponseEntity<String> accessInstance(
             Authentication auth,
             @PathVariable Long id
@@ -91,8 +91,8 @@ public class InstanceController {
                 instance.getName()
         );
 
-        String url = instance.getUrl() + "/saas-login?db=" + instance.getName() + "_db&token=" + token;
-//        String url = instance.getUrl() + "/saas-login?token=" + token;
+//        String url = instance.getUrl() + "/saas-login?db=" + instance.getName() + "_db&token=" + token;
+        String url = instance.getUrl() + "/saas-login?token=" + token;
 
         return ResponseEntity.ok(url);
     }

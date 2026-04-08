@@ -17,31 +17,18 @@ class SaasSSOController(http.Controller):
             email = payload.get("sub")
             role = payload.get("role")
 
+          # Validate that both email and role are present
             if not email or not role:
                 return "Invalid token"
 
+            # Search for the user by email
             user = request.env['res.users'].sudo().search([
                 ('login', '=', email)
             ], limit=1)
 
-            internal_group = request.env.ref('base.group_user')
-            admin_group = request.env.ref('base.group_system')
-
+            # If the user doesn't exist, return an error
             if not user:
-                if role == "OWNER":
-                    groups = [internal_group.id, admin_group.id]
-                else:
-                    groups = [internal_group.id]
-
-                user = request.env['res.users'].sudo().create({
-                    'name': email,
-                    'login': email,
-                    'groups_id': [(6, 0, groups)]
-                })
-
-            user.sudo().write({
-                'login_date': fields.Datetime.now()
-            })
+                return "User not found"
 
             request.session.logout()
 
@@ -49,6 +36,9 @@ class SaasSSOController(http.Controller):
             request.session.login = user.login
             request.session.session_token = user._compute_session_token(request.session.sid)
 
+            user.write({
+                'login_date': fields.Datetime.now()
+            })
             return request.redirect('/web')
 
         except Exception as e:

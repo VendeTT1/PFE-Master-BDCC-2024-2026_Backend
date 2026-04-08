@@ -24,7 +24,7 @@ public class InstanceService {
     private final UserRepository userRepository;
     private final DockerService dockerService;
 
-    public InstanceResponseDTO createInstance(String email, CreatedInstanceRequestDTO request) {
+    public InstanceResponseDTO createInstance(String email) {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow();
@@ -34,7 +34,7 @@ public class InstanceService {
         String instanceName = company.getName();
 
         Instance instance = new Instance();
-        instance.setName(request.name());
+        instance.setName(instanceName);
         instance.setCompany(company);
         instance.setStatus(InstanceStatus.CREATING);
 
@@ -49,6 +49,7 @@ public class InstanceService {
             instance.setStatus(InstanceStatus.RUNNING);
 
         } catch (Exception e) {
+            e.printStackTrace();
             instance.setStatus(InstanceStatus.ERROR);
         }
 
