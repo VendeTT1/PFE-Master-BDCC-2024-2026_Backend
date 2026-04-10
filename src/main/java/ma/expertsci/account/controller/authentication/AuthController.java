@@ -12,7 +12,7 @@ import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.service.AuthService;
-import ma.expertsci.account.service.RefreshTokenService;
+import ma.expertsci.security.RefreshTokenService;
 import ma.expertsci.security.JwtService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -47,7 +47,7 @@ public class AuthController {
         return ResponseEntity.ok(registrationService.login(request));
     }
 
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin")
     public String adminEndpoint() {
         return "Only admins";

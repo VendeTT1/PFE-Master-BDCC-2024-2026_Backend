@@ -12,6 +12,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 
 @EnableMethodSecurity
@@ -30,7 +32,7 @@ public class SecurityConfig {
 
                         // Role-based URL protection
                         .requestMatchers("/api/auth/admin")
-                        .hasRole("SUPER_ADMIN")
+                        .hasRole("ADMIN")
 
                         .requestMatchers("/api/auth/staff")
                         .hasRole("STAFF")
