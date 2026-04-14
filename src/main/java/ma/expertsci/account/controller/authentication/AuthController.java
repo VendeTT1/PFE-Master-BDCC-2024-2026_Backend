@@ -1,7 +1,9 @@
 package ma.expertsci.account.controller.authentication;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import ma.expertsci.account.dto.company.UserResponseDTO;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.login.LoginResponseDTO;
 import ma.expertsci.account.dto.login.RefreshTokenRequestDTO;
@@ -20,8 +22,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 
 //@PreAuthorize("#id == authentication.principal.id") -> This allows user to access only his own resource.
-
-
+//@CrossOrigin("*")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -41,23 +42,23 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDTO> login(
-            @Valid @RequestBody LoginRequestDTO request
+    public ResponseEntity<UserResponseDTO> login(
+            @Valid @RequestBody LoginRequestDTO request, HttpServletResponse response
     ) throws InvalidCredentialsException {
-        return ResponseEntity.ok(registrationService.login(request));
+        return ResponseEntity.ok(registrationService.login(request, response));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/admin")
-    public String adminEndpoint() {
-        return "Only admins";
-    }
+//    @PreAuthorize("hasRole('ADMIN')")
+//    @GetMapping("/admin")
+//    public String adminEndpoint() {
+//        return "Only admins";
+//    }
 
-    @PreAuthorize("hasRole('STAFF')")
-    @GetMapping("/staff")
-    public String userEndpoint() {
-        return "Only users";
-    }
+//    @PreAuthorize("hasRole('STAFF')")
+//    @GetMapping("/staff")
+//    public String userEndpoint() {
+//        return "Only users";
+//    }
 
     @PostMapping("/refresh")
     public ResponseEntity<LoginResponseDTO> refreshToken(

@@ -42,9 +42,9 @@ public class SecurityConfig {
 
                         // Public endpoints
                         .requestMatchers("/api/auth/**",
-                                        "/swagger-ui/**",
-                                        "/v3/api-docs/**",
-                                        "/api/invitations/**")
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/api/invitations/**")
                         .permitAll()
                         // Everything else
                         .anyRequest()
@@ -69,5 +69,21 @@ public class SecurityConfig {
             AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
+
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/**")
+                        .allowedOrigins("http://localhost:5173")  // Replace with allowed origins
+                        .allowedMethods("GET", "POST", "PUT", "DELETE")  // Add allowed methods
+                        .allowedHeaders("*")// Or specify specific headers
+//                        .allowedOriginPatterns("*")
+                        .allowCredentials(true);  // Allow credentials if needed
+            }
+        };
+    }
+
 }
 

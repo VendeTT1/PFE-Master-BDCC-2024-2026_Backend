@@ -1,6 +1,9 @@
 package ma.expertsci.account.service;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import ma.expertsci.account.dto.company.UserResponseDTO;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.login.LoginResponseDTO;
 import ma.expertsci.account.dto.registration.RegisterResponseDTO;
@@ -26,6 +29,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -81,7 +85,7 @@ public class AuthService {
                 .build();
     }
 
-    public LoginResponseDTO login(LoginRequestDTO request) throws InvalidCredentialsException {
+    public UserResponseDTO login(LoginRequestDTO request, HttpServletResponse response) throws InvalidCredentialsException {
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -95,15 +99,34 @@ public class AuthService {
                 .orElseThrow();
 
         String accessToken = jwtService.generateToken(
-                (UserDetails) authentication.getPrincipal()
+                (UserDetails) Objects.requireNonNull(authentication.getPrincipal())
         );
 
         RefreshToken refreshToken =
                 refreshTokenService.createRefreshToken(user);
 
-        return LoginResponseDTO.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
+        Cookie accessTokenCookie = new Cookie("JWT", accessToken);
+        accessTokenCookie.setHttpOnly(true);   // Prevent access via JavaScript
+        accessTokenCookie.setSecure(false);     // Ensure cookie is sent over HTTPS (set to false for dev)
+        accessTokenCookie.setPath("/");        // Available across the entire application
+        accessTokenCookie.setMaxAge(60 * 15); // 15 min expiration (adjust as necessary)
+        response.addCookie(accessTokenCookie);
+
+        Cookie refreshTokenCookie = new Cookie("Refresh_Token", refreshToken.getToken());
+        refreshTokenCookie.setHttpOnly(true);   // Prevent access via JavaScript
+        refreshTokenCookie.setSecure(false);     // Ensure cookie is sent over HTTPS (set to false for dev)
+        refreshTokenCookie.setPath("/");        // Available across the entire application
+        refreshTokenCookie.setMaxAge(60 * 60 * 8); // 8 hours expiration (adjust as necessary)
+        response.addCookie(refreshTokenCookie);
+
+//        return LoginResponseDTO.builder()
+//                .accessToken(accessToken)
+//                .refreshToken(refreshToken.getToken())
+//                .build();
+
+        return UserResponseDTO.builder()
+                .email(user.getEmail())
+                .role(user.getRole().name())
                 .build();
     }
 
