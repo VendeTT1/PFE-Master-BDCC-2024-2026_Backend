@@ -3,6 +3,7 @@ package ma.expertsci.instances.controller;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.service.UserService;
+import ma.expertsci.instances.dto.AccessURLDTO;
 import ma.expertsci.instances.dto.CreatedInstanceRequestDTO;
 import ma.expertsci.instances.dto.InstanceResponseDTO;
 import ma.expertsci.instances.entities.Instance;
@@ -72,7 +73,7 @@ public class InstanceController {
     }
     @PreAuthorize("hasRole('OWNER')")
     @GetMapping("/{id}/access")
-    public ResponseEntity<String> accessInstance(
+    public ResponseEntity<AccessURLDTO> accessInstance(
             Authentication auth,
             @PathVariable Long id
     ) {
@@ -95,6 +96,7 @@ public class InstanceController {
 //        String url = instance.getUrl() + "/saas-login?db=" + instance.getName() + "_db&token=" + token;
         String url = instance.getUrl() + "/saas-login?token=" + token;
 
-        return ResponseEntity.ok(url);
+        AccessURLDTO accessURLDTO = new AccessURLDTO(url);
+        return ResponseEntity.ok(accessURLDTO);
     }
 }
