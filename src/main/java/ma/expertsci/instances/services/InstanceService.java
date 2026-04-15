@@ -63,7 +63,7 @@ public class InstanceService {
                 .id(instance.getId())
                 .name(instance.getName())
                 .url(instance.getUrl())
-                .status(instance.getStatus().name())
+                .status(instance.getStatus())
                 .build();
     }
 

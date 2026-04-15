@@ -7,6 +7,7 @@ import ma.expertsci.instances.dto.AccessURLDTO;
 import ma.expertsci.instances.dto.CreatedInstanceRequestDTO;
 import ma.expertsci.instances.dto.InstanceResponseDTO;
 import ma.expertsci.instances.entities.Instance;
+import ma.expertsci.instances.entities.InstanceStatus;
 import ma.expertsci.instances.services.InstanceService;
 import ma.expertsci.security.JwtService;
 import org.apache.tomcat.Jar;
@@ -40,16 +41,16 @@ public class InstanceController {
 
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/{id}/start")
-    public ResponseEntity<String> start(Authentication auth, @PathVariable Long id) throws Exception {
+    public ResponseEntity<InstanceStatus> start(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.startInstance(auth.getName(), id);
-        return ResponseEntity.ok("Instance started");
+        return ResponseEntity.ok(InstanceStatus.RUNNING);
     }
 
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/{id}/stop")
-    public ResponseEntity<String> stop(Authentication auth, @PathVariable Long id) throws Exception {
+    public ResponseEntity<InstanceStatus> stop(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.stopInstance(auth.getName(), id);
-        return ResponseEntity.ok("Instance stopped");
+        return ResponseEntity.ok(InstanceStatus.STOPPED);
     }
 
     @PreAuthorize("hasRole('OWNER')")

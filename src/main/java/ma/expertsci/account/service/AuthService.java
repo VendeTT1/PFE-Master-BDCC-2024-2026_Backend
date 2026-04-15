@@ -126,6 +126,9 @@ public class AuthService {
 
         return UserResponseDTO.builder()
                 .email(user.getEmail())
+                .lastName(user.getLastName())
+                .firstName(user.getFirstName())
+                .status(user.getStatus())
                 .role(user.getRole().name())
                 .build();
     }
