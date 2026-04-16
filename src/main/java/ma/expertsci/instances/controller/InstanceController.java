@@ -72,6 +72,7 @@ public class InstanceController {
     public ResponseEntity<List<InstanceResponseDTO>> list(Authentication auth) {
         return ResponseEntity.ok(instanceService.getInstances(auth.getName()));
     }
+
     @PreAuthorize("hasRole('OWNER')")
     @GetMapping("/{id}/access")
     public ResponseEntity<AccessURLDTO> accessInstance(
@@ -100,4 +101,11 @@ public class InstanceController {
         AccessURLDTO accessURLDTO = new AccessURLDTO(url);
         return ResponseEntity.ok(accessURLDTO);
     }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/allInstances")
+    public ResponseEntity<List<InstanceResponseDTO>> allInstances(Authentication auth) {
+        return ResponseEntity.ok(instanceService.getInstances(auth.getName()));
+    }
+
 }

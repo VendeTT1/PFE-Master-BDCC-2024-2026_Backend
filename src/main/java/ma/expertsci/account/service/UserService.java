@@ -1,6 +1,7 @@
 package ma.expertsci.account.service;
 
 import ma.expertsci.account.entities.user.User;
+import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +26,7 @@ public class UserService {
     }
 
     public void deleteUser(Long id) {
-        userRepository.deleteById(id);
+        User userToInactive = userRepository.getReferenceById(id);
+        userToInactive.setStatus(UserStatus.INACTIVE);
     }
 }

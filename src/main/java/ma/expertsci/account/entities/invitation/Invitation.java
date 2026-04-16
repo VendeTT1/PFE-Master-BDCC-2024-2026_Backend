@@ -1,5 +1,6 @@
 package ma.expertsci.account.entities.invitation;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,6 +24,7 @@ public class Invitation {
 
     private String email;
 
+    @JsonIgnore
     private String token;
 
     @Enumerated(EnumType.STRING)
