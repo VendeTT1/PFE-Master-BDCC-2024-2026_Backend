@@ -63,8 +63,7 @@ public class SubscriptionService {
         if (user.getCompany() == null) {
             throw new RuntimeException("User has no company");
         }
-        System.out.println("company name"+user.getCompany().getName());
-        Subscription subscription = subscriptionRepository
+       Subscription subscription = subscriptionRepository
                 .findByCompany(user.getCompany())
                 .orElseThrow(() -> new RuntimeException("Subscription not found"));
 

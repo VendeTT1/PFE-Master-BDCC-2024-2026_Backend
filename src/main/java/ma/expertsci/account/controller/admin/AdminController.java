@@ -1,6 +1,7 @@
 package ma.expertsci.account.controller.admin;
 
 import lombok.RequiredArgsConstructor;
+import ma.expertsci.account.dto.user.UserDTO;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.service.UserService;
 import org.springframework.http.HttpStatus;
@@ -15,9 +16,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminController {
 
-        private UserService userService;
 
-        // Create a new user, accessible only by Admin role
+    private final UserService userService;
+
+    // Create a new user, accessible only by Admin role
         @PreAuthorize("hasRole('ADMIN')")
         @PostMapping
         public ResponseEntity<User> createUser(@RequestBody User user) {
@@ -28,14 +30,14 @@ public class AdminController {
         // Get all users, accessible only by Admin role
         @PreAuthorize("hasRole('ADMIN')")
         @GetMapping("/allUsers")
-        public ResponseEntity<List<User>> getAllUsers() {
-            List<User> users = userService.getAllUsers();
+        public ResponseEntity<List<UserDTO>> getAllUsers() {
+            List<UserDTO> users = userService.getAllUsers();
             return new ResponseEntity<>(users, HttpStatus.OK);
         }
 
         // Get user by ID, accessible only by Admin role
         @PreAuthorize("hasRole('ADMIN')")
-        @GetMapping("/{id}")
+        @GetMapping("/user/{id}")
         public ResponseEntity<User> getUserById(@PathVariable Long id) {
             User user = userService.getUserById(id);
             return new ResponseEntity<>(user, HttpStatus.OK);
@@ -43,7 +45,7 @@ public class AdminController {
 
         // Delete user by ID, accessible only by Admin role
         @PreAuthorize("hasRole('ADMIN')")
-        @DeleteMapping("/{id}")
+        @DeleteMapping("/user/{id}")
         public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
             userService.deleteUser(id);
             return new ResponseEntity<>(HttpStatus.NO_CONTENT);
