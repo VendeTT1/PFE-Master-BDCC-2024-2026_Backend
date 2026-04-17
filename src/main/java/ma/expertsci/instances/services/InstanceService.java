@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -61,7 +63,7 @@ public class InstanceService {
     private InstanceResponseDTO mapToResponse(Instance instance) {
         return InstanceResponseDTO.builder()
                 .id(instance.getId())
-                .name(instance.getName())
+                .nameInstance(instance.getName())
                 .url(instance.getUrl())
                 .status(instance.getStatus())
                 .build();
@@ -114,9 +116,23 @@ public class InstanceService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow();
 
-        return instanceRepository.findByCompany(user.getCompany())
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        List<Instance> instances = instanceRepository.findAll();
+        if (instances.isEmpty()) {
+            throw new RuntimeException("Instances not found");
+        }
+
+        List<InstanceResponseDTO> instanceResponseDTOS = instances.stream()
+                .map(instance -> InstanceResponseDTO.builder()
+                        .id(instance.getId())
+                        .region(instance.getCompany().getCountry())
+                        .userEmail(instance.getCompany().getUsers().get(0).getEmail())
+                        .nameInstance(instance.getName())
+                        .status(instance.getStatus())
+                        .firstName(instance.getCompany().getUsers().get(0).getFirstName())
+                        .lastName(instance.getCompany().getUsers().get(0).getLastName())
+                        .build())
+                .collect(Collectors.toList());
+
+        return instanceResponseDTOS;
     }
 }

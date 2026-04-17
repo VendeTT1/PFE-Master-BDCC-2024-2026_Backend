@@ -80,7 +80,7 @@ public class SubscriptionService {
         // Fetch all subscriptions
         List<Subscription> subscriptions = subscriptionRepository.findAll();
         if (subscriptions.isEmpty()) {
-            throw new RuntimeException("Subscription not found");
+            throw new RuntimeException("Subscriptions not found");
         }
         // Map to DTOs
         List<SubscriptionResponseDTO> subscriptionDTOs = subscriptions.stream()

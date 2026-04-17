@@ -8,7 +8,11 @@ import ma.expertsci.instances.entities.InstanceStatus;
 @Data
 public class InstanceResponseDTO {
     private Long id;
-    private String name;
+    private String nameInstance;
     private String url;
+    private String region;
     private InstanceStatus status;
+    private String userEmail;
+    private String firstName;
+    private String lastName;
 }
