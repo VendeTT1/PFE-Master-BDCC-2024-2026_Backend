@@ -3,7 +3,7 @@ package ma.expertsci.account.controller.authentication;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import ma.expertsci.account.dto.company.UserResponseDTO;
+import ma.expertsci.account.dto.user.UserResponseDTO;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.login.LoginResponseDTO;
 import ma.expertsci.account.dto.login.RefreshTokenRequestDTO;
@@ -17,7 +17,6 @@ import ma.expertsci.account.service.AuthService;
 import ma.expertsci.security.RefreshTokenService;
 import ma.expertsci.security.JwtService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 

@@ -3,7 +3,7 @@ package ma.expertsci.account.controller.company;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.dto.company.CompanyResponseDTO;
 import ma.expertsci.account.dto.company.UpdateCompanyDTO;
-import ma.expertsci.account.dto.company.UserResponseDTO;
+import ma.expertsci.account.dto.user.UserResponseDTO;
 import ma.expertsci.account.service.CompanyService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,8 +20,9 @@ public class CompanyController {
 
     private final CompanyService companyService;
 
-    @GetMapping
+
     @PreAuthorize("hasRole('OWNER')")
+    @GetMapping
     public ResponseEntity<CompanyResponseDTO> getCompany(Authentication auth) {
 
         return ResponseEntity.ok(
@@ -29,8 +30,19 @@ public class CompanyController {
         );
     }
 
-    @PutMapping
+
     @PreAuthorize("hasRole('OWNER')")
+    @GetMapping("/user")
+    public ResponseEntity<UserResponseDTO> getUser(Authentication auth) {
+
+        return ResponseEntity.ok(
+                companyService.getUser(auth.getName())
+        );
+    }
+
+
+    @PreAuthorize("hasRole('OWNER')")
+    @PutMapping
     public ResponseEntity<CompanyResponseDTO> updateCompany(
             Authentication auth,
             @RequestBody UpdateCompanyDTO request
@@ -41,8 +53,9 @@ public class CompanyController {
         );
     }
 
+
+    @PreAuthorize("hasRole('OWNER')")//super admin should also be able to list the same
     @GetMapping("/users")
-    @PreAuthorize("hasRole('OWNER')") //super admin should also be able to list the same
     public ResponseEntity<List<UserResponseDTO>> getUsers(Authentication auth) {
 
         return ResponseEntity.ok(

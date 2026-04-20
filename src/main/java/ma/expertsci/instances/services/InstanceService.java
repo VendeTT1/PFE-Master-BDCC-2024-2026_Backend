@@ -3,6 +3,7 @@ package ma.expertsci.instances.services;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.entities.user.User;
+import ma.expertsci.account.entities.user.UserRole;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.instances.dto.CreatedInstanceRequestDTO;
 import ma.expertsci.instances.dto.DockerResultDTO;
@@ -65,6 +66,10 @@ public class InstanceService {
                 .id(instance.getId())
                 .nameInstance(instance.getName())
                 .url(instance.getUrl())
+                .region(instance.getCompany().getCountry())
+                .userEmail(instance.getCompany().getUsers().get(0).getEmail())
+                .firstName(instance.getCompany().getUsers().get(0).getFirstName())
+                .lastName(instance.getCompany().getUsers().get(0).getLastName())
                 .status(instance.getStatus())
                 .build();
     }
@@ -77,11 +82,30 @@ public class InstanceService {
         Instance instance = instanceRepository.findById(instanceId)
                 .orElseThrow();
 
+        if (user.getRole() == UserRole.ADMIN) {
+            return instance;
+        }
         if (!instance.getCompany().getId().equals(user.getCompany().getId())) {
             throw new RuntimeException("Unauthorized access to instance");
         }
 
         return instance;
+    }
+
+    public InstanceResponseDTO getUserInstanceOnly(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow();
+
+        Instance instance = instanceRepository.findByName(user.getCompany().getName())
+                .orElseThrow();
+
+        if (!instance.getCompany().getId().equals(user.getCompany().getId())) {
+            throw new RuntimeException("Unauthorized access to instance");
+        }
+
+        return mapToResponse(instance);
+
+
     }
 
     public void startInstance(String email, Long instanceId) throws Exception {

@@ -1,8 +1,10 @@
 package ma.expertsci.instances.services;
 
+import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.entities.user.UserRole;
 import ma.expertsci.account.repository.UserRepository;
+import ma.expertsci.account.service.CompanyService;
 import ma.expertsci.instances.dto.DockerResultDTO;
 import org.springframework.stereotype.Service;
 
@@ -148,7 +150,6 @@ public class DockerService {
 
 
     public void startInstanceContainer(String instanceName) throws Exception {
-
         Path instanceDir = Paths.get("instances/" + instanceName);
 
         ProcessBuilder pb = new ProcessBuilder(

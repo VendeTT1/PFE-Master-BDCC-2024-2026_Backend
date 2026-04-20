@@ -39,25 +39,25 @@ public class InstanceController {
         );
     }
 
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     @PostMapping("/{id}/start")
     public ResponseEntity<InstanceStatus> start(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.startInstance(auth.getName(), id);
         return ResponseEntity.ok(InstanceStatus.RUNNING);
     }
 
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
     @PostMapping("/{id}/stop")
     public ResponseEntity<InstanceStatus> stop(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.stopInstance(auth.getName(), id);
         return ResponseEntity.ok(InstanceStatus.STOPPED);
     }
 
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     @PostMapping("/{id}/restart")
-    public ResponseEntity<String> restart(Authentication auth, @PathVariable Long id) throws Exception {
+    public ResponseEntity<InstanceStatus> restart(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.restartInstance(auth.getName(), id);
-        return ResponseEntity.ok("Instance restarted");
+        return ResponseEntity.ok(InstanceStatus.RUNNING);
     }
 
 //    @DeleteMapping("/{id}")
@@ -68,9 +68,9 @@ public class InstanceController {
 //    }
 
     @PreAuthorize("hasRole('OWNER')")
-    @GetMapping
-    public ResponseEntity<List<InstanceResponseDTO>> list(Authentication auth) {
-        return ResponseEntity.ok(instanceService.getInstances(auth.getName()));
+    @GetMapping("userInstance")
+    public ResponseEntity<InstanceResponseDTO> getUserInstanceOnly(Authentication auth) throws Exception {
+        return ResponseEntity.ok(instanceService.getUserInstanceOnly(auth.getName()));
     }
 
     @PreAuthorize("hasRole('OWNER')")

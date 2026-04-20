@@ -3,7 +3,7 @@ package ma.expertsci.account.service;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.dto.company.CompanyResponseDTO;
 import ma.expertsci.account.dto.company.UpdateCompanyDTO;
-import ma.expertsci.account.dto.company.UserResponseDTO;
+import ma.expertsci.account.dto.user.UserResponseDTO;
 import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.entities.user.UserStatus;
@@ -98,4 +98,21 @@ public class CompanyService {
         user.setStatus(UserStatus.INACTIVE);
         userRepository.save(user);
     }
+
+    public UserResponseDTO getUser(String email){
+        Company company = getCurrentCompany(email);
+
+        User owner = company.getUsers().get(0);
+
+        return UserResponseDTO.builder()
+                .email(owner.getEmail())
+                .firstName(owner.getFirstName())
+                .lastName(owner.getLastName())
+                .role(owner.getRole().name())
+                .status(owner.getStatus())
+                .build();
+
+
+    }
+
 }

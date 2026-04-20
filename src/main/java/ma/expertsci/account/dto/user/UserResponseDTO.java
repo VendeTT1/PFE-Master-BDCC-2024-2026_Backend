@@ -1,4 +1,4 @@
-package ma.expertsci.account.dto.company;
+package ma.expertsci.account.dto.user;
 
 
 import lombok.Builder;
