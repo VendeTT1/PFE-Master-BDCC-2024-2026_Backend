@@ -3,6 +3,7 @@ package ma.expertsci.account.service;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import ma.expertsci.account.dto.user.ChangePasswordDTO;
 import ma.expertsci.account.dto.user.UserResponseDTO;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.registration.RegisterResponseDTO;
@@ -130,6 +131,16 @@ public class AuthService {
                 .status(user.getStatus())
                 .role(user.getRole().name())
                 .build();
+    }
+
+    public void updatePassword(String email, ChangePasswordDTO newPassword) throws InvalidCredentialsException {
+        User user = userRepository.findByEmail(email).orElseThrow();
+
+        if (!email.equals(user.getEmail())) {
+            throw new InvalidCredentialsException("Invalid email");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword.getNewPassword()));
+        userRepository.save(user);
     }
 
 

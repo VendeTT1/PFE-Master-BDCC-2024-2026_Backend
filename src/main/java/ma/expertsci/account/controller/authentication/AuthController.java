@@ -3,6 +3,7 @@ package ma.expertsci.account.controller.authentication;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import ma.expertsci.account.dto.user.ChangePasswordDTO;
 import ma.expertsci.account.dto.user.UserResponseDTO;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.login.LoginResponseDTO;
@@ -14,9 +15,13 @@ import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.service.AuthService;
+import ma.expertsci.account.service.UserService;
 import ma.expertsci.security.RefreshTokenService;
 import ma.expertsci.security.JwtService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,6 +36,8 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final UserService userService;
+    private final AuthService authService;
 
 
     @PostMapping("/register")
@@ -81,6 +88,7 @@ public class AuthController {
                         .build()
         );
     }
+
     @PostMapping("/logout")
     public ResponseEntity<String> logout(
             @RequestBody RefreshTokenRequestDTO request) {
@@ -91,6 +99,16 @@ public class AuthController {
         return ResponseEntity.ok("Logged out successfully");
     }
 
+
+    @PreAuthorize("hasRole('OWNER')")
+    @PatchMapping("/updatePassword")
+    public ResponseEntity<?> updatePassword(Authentication auth, @RequestBody ChangePasswordDTO password) throws InvalidCredentialsException {
+
+        authService.updatePassword(auth.getName(), password);
+
+        return ResponseEntity.ok(HttpStatus.OK);
+
+    }
 
 }
 
