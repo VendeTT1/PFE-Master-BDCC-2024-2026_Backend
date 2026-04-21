@@ -12,12 +12,9 @@ import ma.expertsci.instances.entities.Instance;
 import ma.expertsci.instances.entities.InstanceStatus;
 import ma.expertsci.instances.repository.InstanceRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -135,28 +132,22 @@ public class InstanceService {
         instance.setStatus(InstanceStatus.RUNNING);
         instanceRepository.save(instance);
     }
-    public List<InstanceResponseDTO> getInstances(String email) {
+    public Page<InstanceResponseDTO> getInstances(String email, Pageable pageable) {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow();
 
-        List<Instance> instances = instanceRepository.findAll();
-        if (instances.isEmpty()) {
-            throw new RuntimeException("Instances not found");
-        }
+        Page<Instance> instancesPage = instanceRepository.findAll(pageable);
 
-        List<InstanceResponseDTO> instanceResponseDTOS = instances.stream()
-                .map(instance -> InstanceResponseDTO.builder()
-                        .id(instance.getId())
-                        .region(instance.getCompany().getCountry())
-                        .userEmail(instance.getCompany().getUsers().get(0).getEmail())
-                        .nameInstance(instance.getName())
-                        .status(instance.getStatus())
-                        .firstName(instance.getCompany().getUsers().get(0).getFirstName())
-                        .lastName(instance.getCompany().getUsers().get(0).getLastName())
-                        .build())
-                .collect(Collectors.toList());
-
-        return instanceResponseDTOS;
+        return instancesPage.map(instance -> InstanceResponseDTO.builder()
+                .id(instance.getId())
+                .region(instance.getCompany().getCountry())
+                .userEmail(instance.getCompany().getUsers().get(0).getEmail())
+                .nameInstance(instance.getName())
+                .status(instance.getStatus())
+                .firstName(instance.getCompany().getUsers().get(0).getFirstName())
+                .lastName(instance.getCompany().getUsers().get(0).getLastName())
+                .build()
+        );
     }
 }

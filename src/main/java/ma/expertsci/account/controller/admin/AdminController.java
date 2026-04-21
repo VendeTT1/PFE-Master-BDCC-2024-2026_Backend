@@ -4,10 +4,14 @@ import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.dto.user.UserDTO;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.service.UserService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -29,9 +33,16 @@ public class AdminController {
         // Get all users, accessible only by Admin role
         @PreAuthorize("hasRole('ADMIN')")
         @GetMapping("/allUsers")
-        public ResponseEntity<List<UserDTO>> getAllUsers() {
-            List<UserDTO> users = userService.getAllUsers();
-            return new ResponseEntity<>(users, HttpStatus.OK);
+        public ResponseEntity<Page<UserDTO>> getAllUsers(
+                @RequestParam(defaultValue = "0") int page,
+                @RequestParam(defaultValue = "10") int size) {
+
+            size = Math.min(size, 50);
+
+            Pageable pageable = PageRequest.of(page, size);
+            Page<UserDTO> users = userService.getAllUsers(pageable);
+
+            return ResponseEntity.ok(users);
         }
 
         // Get user by ID, accessible only by Admin role

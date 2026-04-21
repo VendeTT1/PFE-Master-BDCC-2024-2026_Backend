@@ -10,13 +10,15 @@ import ma.expertsci.instances.entities.Instance;
 import ma.expertsci.instances.entities.InstanceStatus;
 import ma.expertsci.instances.services.InstanceService;
 import ma.expertsci.security.JwtService;
-import org.apache.tomcat.Jar;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/instances")
@@ -103,8 +105,17 @@ public class InstanceController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/allInstances")
-    public ResponseEntity<List<InstanceResponseDTO>> allInstances(Authentication auth) {
-        return ResponseEntity.ok(instanceService.getInstances(auth.getName()));
+    public ResponseEntity<Page<InstanceResponseDTO>> getInstances(
+            Authentication auth,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        size = Math.min(size, 50); // max 50
+
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(
+                instanceService.getInstances(auth.getName(), pageable)
+        );
     }
 
 }

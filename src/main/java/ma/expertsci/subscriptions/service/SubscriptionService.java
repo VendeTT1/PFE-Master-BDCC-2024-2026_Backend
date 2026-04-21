@@ -10,6 +10,8 @@ import ma.expertsci.subscriptions.entities.PlanType;
 import ma.expertsci.subscriptions.entities.Subscription;
 import ma.expertsci.subscriptions.entities.SubscriptionStatus;
 import ma.expertsci.subscriptions.repository.SubscriptionRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -75,25 +77,25 @@ public class SubscriptionService {
                 .build();
     }
 
-    public List<SubscriptionResponseDTO> getAllSubscriptionsForAdmin() {
-        // Fetch all subscriptions
-        List<Subscription> subscriptions = subscriptionRepository.findAll();
-        if (subscriptions.isEmpty()) {
-            throw new RuntimeException("Subscriptions not found");
-        }
-        // Map to DTOs
-        List<SubscriptionResponseDTO> subscriptionDTOs = subscriptions.stream()
-                .map(subscription -> SubscriptionResponseDTO.builder()
-                        .planType(subscription.getPlanType().name())
-                        .status(subscription.getStatus().name())
-                        .startDate(subscription.getStartDate())
-                        .endDate(subscription.getEndDate())
-                        .companyName(subscription.getCompany().getName())
-                        .userEmail(subscription.getCompany().getUsers().get(0).getEmail())
-                        .build())
-                .collect(Collectors.toList());
+    public Page<SubscriptionResponseDTO> getAllSubscriptionsForAdmin(Pageable pageable) {
 
-        return subscriptionDTOs;
+        Page<Subscription> subscriptionsPage = subscriptionRepository.findAll(pageable);
+
+        return subscriptionsPage.map(subscription -> {
+
+            // SAFE extraction du user
+            User user = subscription.getCompany().getUsers().stream()
+                    .findFirst()
+                    .orElse(null);
+
+            return SubscriptionResponseDTO.builder()
+                    .planType(subscription.getPlanType().name())
+                    .status(subscription.getStatus().name())
+                    .startDate(subscription.getStartDate())
+                    .endDate(subscription.getEndDate())
+                    .companyName(subscription.getCompany().getName())
+                    .userEmail(user.getEmail())
+                    .build();
+        });
     }
-
 }

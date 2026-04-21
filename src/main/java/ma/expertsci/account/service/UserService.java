@@ -5,6 +5,8 @@ import ma.expertsci.account.dto.user.UserDTO;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -22,14 +24,9 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public List<UserDTO> getAllUsers() {
+    public Page<UserDTO> getAllUsers(Pageable pageable) {
 
-        List<User> users = userRepository.findAll();
-
-        if (users.isEmpty()) {
-            throw new RuntimeException("No users found");
-        }
-        List<UserDTO> userDTOs = users.stream()
+        return userRepository.findAll(pageable)
                 .map(user -> UserDTO.builder()
                         .id(user.getId())
                         .userRole(user.getRole().name())
@@ -37,12 +34,9 @@ public class UserService {
                         .lastName(user.getLastName())
                         .status(user.getStatus().name())
                         .email(user.getEmail())
-                        .build())
-                .collect(Collectors.toList());
-
-        return userDTOs;
+                        .build()
+                );
     }
-
     public User getUserById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
