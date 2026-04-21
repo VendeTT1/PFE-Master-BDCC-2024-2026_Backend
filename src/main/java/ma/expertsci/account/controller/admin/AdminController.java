@@ -16,7 +16,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminController {
 
-
     private final UserService userService;
 
     // Create a new user, accessible only by Admin role
