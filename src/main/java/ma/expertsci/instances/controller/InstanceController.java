@@ -67,13 +67,13 @@ public class InstanceController {
 //        return ResponseEntity.ok("Instance deleted");
 //    }
 
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
     @GetMapping("userInstance")
     public ResponseEntity<InstanceResponseDTO> getUserInstanceOnly(Authentication auth) throws Exception {
         return ResponseEntity.ok(instanceService.getUserInstanceOnly(auth.getName()));
     }
 
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
     @GetMapping("/{id}/access")
     public ResponseEntity<AccessURLDTO> accessInstance(
             Authentication auth,
