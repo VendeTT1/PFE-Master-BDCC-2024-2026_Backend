@@ -1,5 +1,7 @@
 package ma.expertsci.account.controller.authentication;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,14 +16,14 @@ import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.service.AuthService;
+import ma.expertsci.security.CookieUtils;
 import ma.expertsci.security.RefreshTokenService;
 import ma.expertsci.security.JwtService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 
-//@PreAuthorize("#id == authentication.principal.id") -> This allows user to access only his own resource.
-//@CrossOrigin("*")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -47,11 +49,6 @@ public class AuthController {
         return ResponseEntity.ok(registrationService.login(request, response));
     }
 
-//    @PreAuthorize("hasRole('ADMIN')")
-//    @GetMapping("/admin")
-//    public String adminEndpoint() {
-//        return "Only admins";
-//    }
 
 //    @PreAuthorize("hasRole('STAFF')")
 //    @GetMapping("/staff")
@@ -60,38 +57,72 @@ public class AuthController {
 //    }
 
     @PostMapping("/refresh")
-    public ResponseEntity<LoginResponseDTO> refreshToken(
-            @RequestBody RefreshTokenRequestDTO request) {
+    public ResponseEntity<?> refreshToken(
+            HttpServletRequest request,
+            HttpServletResponse response) {
 
-        RefreshToken refreshToken =
-                refreshTokenService.verifyToken(
-                        request.getRefreshToken());
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
 
+        String refreshTokenValue = null;
+        for (Cookie cookie : cookies) {
+            if ("Refresh_Token".equals(cookie.getName())) {
+                refreshTokenValue = cookie.getValue();
+                break;
+            }
+        }
+
+        if (refreshTokenValue == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        RefreshToken refreshToken = refreshTokenService.verifyToken(refreshTokenValue);
         User user = refreshToken.getUser();
 
-        String newAccessToken =
-                jwtService.generateToken(
-                        userDetailsService
-                                .loadUserByUsername(user.getEmail()));
-
-        return ResponseEntity.ok(
-                LoginResponseDTO.builder()
-                        .accessToken(newAccessToken)
-                        .refreshToken(refreshToken.getToken())
-                        .build()
+        String newAccessToken = jwtService.generateToken(
+                userDetailsService.loadUserByUsername(user.getEmail())
         );
+
+        Cookie accessCookie = new Cookie("JWT", newAccessToken);
+        accessCookie.setHttpOnly(true);
+        accessCookie.setSecure(false); // true in production with HTTPS
+        accessCookie.setPath("/");
+        accessCookie.setMaxAge(15 * 60);
+
+        response.addCookie(accessCookie);
+
+        return ResponseEntity.ok().build();
     }
+
+
+//    @PostMapping("/logout")
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(
-            @RequestBody RefreshTokenRequestDTO request) {
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
+        String refreshTokenValue = CookieUtils.extractRefreshTokenFromCookie(request);
 
-        refreshTokenService.revokeToken(
-                request.getRefreshToken());
+        if (refreshTokenValue != null) {
+            refreshTokenService.revokeToken(refreshTokenValue);
+        }
 
-        return ResponseEntity.ok("Logged out successfully");
+        Cookie accessCookie = new Cookie("JWT", "");
+        accessCookie.setHttpOnly(true);
+        accessCookie.setSecure(false);// true in production with HTTPS
+        accessCookie.setPath("/");
+        accessCookie.setMaxAge(0);
+
+        Cookie refreshCookie = new Cookie("Refresh_Token", "");
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setSecure(false);// true in production with HTTPS
+        refreshCookie.setPath("/");
+        refreshCookie.setMaxAge(0);
+
+        response.addCookie(accessCookie);
+        response.addCookie(refreshCookie);
+
+        return ResponseEntity.ok().build();
     }
-
-
 }
 
 
