@@ -1,7 +1,7 @@
 package ma.expertsci.account.service;
 
 import lombok.RequiredArgsConstructor;
-import ma.expertsci.account.dto.invitation.AcceptInvitationRequestDTO;
+import ma.expertsci.account.dto.invitation.InvitationRequestDTO;
 import ma.expertsci.account.dto.invitation.InvitationResponseDTO;
 import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.entities.invitation.Invitation;
@@ -9,7 +9,6 @@ import ma.expertsci.account.entities.invitation.InvitationStatus;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.entities.user.UserRole;
 import ma.expertsci.account.entities.user.UserStatus;
-import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.InvitationRepository;
 import ma.expertsci.account.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,52 +22,22 @@ import java.util.UUID;
 public class InvitationService {
 
     private final InvitationRepository invitationRepository;
-    private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 
-    public InvitationResponseDTO inviteStaff(String email, Company company) {
+    public InvitationResponseDTO inviteStaff(InvitationRequestDTO request, Company company) {
 
-        String token = UUID.randomUUID().toString();
-
-        Invitation invitation = Invitation.builder()
-                .email(email)
-                .token(token)
-                .status(InvitationStatus.PENDING)
-                .expirationDate(LocalDateTime.now().plusDays(1))
-                .company(company)
-                .build();
-
-        invitationRepository.save(invitation);
-
-        return InvitationResponseDTO.builder()
-                .email(email)
-                .status("PENDING")
-                .expirationDate(invitation.getExpirationDate())
-                .build();
-    }
-
-    public void acceptInvitation(AcceptInvitationRequestDTO request) {
-
-        Invitation invitation = invitationRepository
-                .findByToken(request.getToken())
-                .orElseThrow(() -> new RuntimeException("Invitation not found"));
-
-        if(invitation.getStatus() != InvitationStatus.PENDING) {
-            throw new RuntimeException("Invitation already used");
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("User with this email already exists");
         }
 
-        if(invitation.getExpirationDate().isBefore(LocalDateTime.now())) {
-            invitation.setStatus(InvitationStatus.EXPIRED);
-            invitationRepository.save(invitation);
-            throw new RuntimeException("Invitation expired");
-        }
+        String temporaryPassword = generateTemporaryPassword();
 
         User user = User.builder()
-                .email(invitation.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(temporaryPassword))
                 .role(UserRole.STAFF)
-                .company(invitation.getCompany())
+                .company(company)
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .status(UserStatus.ACTIVE)
@@ -77,8 +46,25 @@ public class InvitationService {
 
         userRepository.save(user);
 
-        invitation.setStatus(InvitationStatus.ACCEPTED);
+        Invitation invitation = Invitation.builder()
+                .email(request.getEmail())
+                .token(UUID.randomUUID().toString())
+                .status(InvitationStatus.ACCEPTED)
+                .expirationDate(LocalDateTime.now().plusDays(1))
+                .company(company)
+                .build();
+
         invitationRepository.save(invitation);
+
+        return InvitationResponseDTO.builder()
+                .email(request.getEmail())
+                .status("SENT")
+                .expirationDate(invitation.getExpirationDate())
+                .temporaryPassword(temporaryPassword)
+                .build();
     }
 
+    private String generateTemporaryPassword() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+    }
 }

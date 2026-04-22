@@ -28,7 +28,6 @@ public class InvitationController {
             @RequestBody InvitationRequestDTO request,
             Authentication authentication
     ) {
-
         String email = authentication.getName();
 
         User owner = userRepository
@@ -38,17 +37,7 @@ public class InvitationController {
         Company company = owner.getCompany();
 
         return ResponseEntity.ok(
-                invitationService.inviteStaff(request.getEmail(), company)
+                invitationService.inviteStaff(request, company)
         );
-    }
-
-    @PostMapping("/accept")
-    public ResponseEntity<String> acceptInvitation(
-            @RequestBody AcceptInvitationRequestDTO request
-    ) {
-
-        invitationService.acceptInvitation(request);
-
-        return ResponseEntity.ok("Account created successfully");
     }
 }

@@ -15,4 +15,6 @@ public class InvitationResponseDTO {
 
     private LocalDateTime expirationDate;
 
+    private String temporaryPassword;
+
 }

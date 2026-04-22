@@ -6,5 +6,7 @@ import lombok.Data;
 public class InvitationRequestDTO {
 
     private String email;
+    private String firstName;
+    private String lastName;
 
 }
