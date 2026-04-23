@@ -1,5 +1,6 @@
 package ma.expertsci.account.service;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.dto.invitation.InvitationRequestDTO;
 import ma.expertsci.account.dto.invitation.InvitationResponseDTO;
@@ -11,6 +12,7 @@ import ma.expertsci.account.entities.user.UserRole;
 import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.InvitationRepository;
 import ma.expertsci.account.repository.UserRepository;
+import ma.expertsci.emailconf.service.EmailService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +26,9 @@ public class InvitationService {
     private final InvitationRepository invitationRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
+    @Transactional
     public InvitationResponseDTO inviteStaff(InvitationRequestDTO request, Company company) {
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
@@ -56,11 +60,17 @@ public class InvitationService {
 
         invitationRepository.save(invitation);
 
+        emailService.sendStaffInvite(
+                request.getEmail(),
+                request.getFirstName(),
+                temporaryPassword
+        );
+
         return InvitationResponseDTO.builder()
                 .email(request.getEmail())
                 .status("SENT")
                 .expirationDate(invitation.getExpirationDate())
-                .temporaryPassword(temporaryPassword)
+                .temporaryPassword(temporaryPassword) // keep for testing, remove later
                 .build();
     }
 
