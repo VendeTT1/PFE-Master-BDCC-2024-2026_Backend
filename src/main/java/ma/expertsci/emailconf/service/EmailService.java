@@ -38,4 +38,19 @@ public class EmailService {
 
         mailSender.send(message);
     }
+
+    public void sendPasswordResetEmail(String to, String link) {
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Reset your password");
+        message.setText(
+                "Click the link below to reset your password:\n\n" +
+                        link + "\n\n" +
+                        "This link will expire in 30 minutes."
+        );
+
+        mailSender.send(message);
+    }
+
 }

@@ -5,6 +5,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import ma.expertsci.account.dto.password.ForgotPasswordRequestDTO;
+import ma.expertsci.account.dto.password.MessageResponseDTO;
+import ma.expertsci.account.dto.password.ResetPasswordRequestDTO;
 import ma.expertsci.account.dto.user.UserResponseDTO;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.login.LoginResponseDTO;
@@ -16,6 +19,7 @@ import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.exception.DataAlreadyExistException;
 import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.service.AuthService;
+import ma.expertsci.account.service.PasswordResetService;
 import ma.expertsci.security.CookieUtils;
 import ma.expertsci.security.RefreshTokenService;
 import ma.expertsci.security.JwtService;
@@ -33,6 +37,8 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final PasswordResetService passwordResetService;
+
 
 
     @PostMapping("/register")
@@ -48,13 +54,6 @@ public class AuthController {
     ) throws InvalidCredentialsException {
         return ResponseEntity.ok(registrationService.login(request, response));
     }
-
-
-//    @PreAuthorize("hasRole('STAFF')")
-//    @GetMapping("/staff")
-//    public String userEndpoint() {
-//        return "Only users";
-//    }
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(
@@ -97,7 +96,6 @@ public class AuthController {
     }
 
 
-//    @PostMapping("/logout")
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
         String refreshTokenValue = CookieUtils.extractRefreshTokenFromCookie(request);
@@ -123,6 +121,31 @@ public class AuthController {
 
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<MessageResponseDTO> forgotPassword(
+                @RequestBody ForgotPasswordRequestDTO request) {
+
+            passwordResetService.requestPasswordReset(request.getEmail());
+
+            return ResponseEntity.ok(
+                    new MessageResponseDTO("If the email exists, a reset link has been sent")
+            );
+        }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<MessageResponseDTO> resetPassword(
+                @RequestBody ResetPasswordRequestDTO request) {
+
+            passwordResetService.resetPassword(
+                    request.getToken(),
+                    request.getNewPassword()
+            );
+
+            return ResponseEntity.ok(
+                    new MessageResponseDTO("Password updated successfully")
+            );
+        }
 }
 
 
