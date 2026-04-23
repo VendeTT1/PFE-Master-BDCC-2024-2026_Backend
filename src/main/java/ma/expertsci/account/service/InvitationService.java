@@ -70,7 +70,7 @@ public class InvitationService {
                 .email(request.getEmail())
                 .status("SENT")
                 .expirationDate(invitation.getExpirationDate())
-                .temporaryPassword(temporaryPassword) // keep for testing, remove later
+//                .temporaryPassword(temporaryPassword) // keep for testing, remove later
                 .build();
     }
 
