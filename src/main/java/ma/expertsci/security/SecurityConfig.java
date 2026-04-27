@@ -42,6 +42,7 @@ public class SecurityConfig {
 
                         // Public endpoints
                         .requestMatchers("/api/auth/**",
+                                "/api/instances/generate-nginx-config/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/api/invitations/**")

@@ -8,6 +8,7 @@ import ma.expertsci.instances.dto.CreatedInstanceRequestDTO;
 import ma.expertsci.instances.dto.InstanceResponseDTO;
 import ma.expertsci.instances.entities.Instance;
 import ma.expertsci.instances.entities.InstanceStatus;
+import ma.expertsci.instances.services.DockerService;
 import ma.expertsci.instances.services.InstanceService;
 import ma.expertsci.security.JwtService;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +29,7 @@ public class InstanceController {
     private final InstanceService instanceService;
     private final JwtService jwtService;
     private final UserService userService;
+    private final DockerService dockerService;
 
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/create")
@@ -116,6 +118,17 @@ public class InstanceController {
         return ResponseEntity.ok(
                 instanceService.getInstances(auth.getName(), pageable)
         );
+    }
+
+    // Endpoint to trigger Nginx config generation
+    @GetMapping("/generate-nginx-config/{instanceName}")
+    public String generateNginxConfig(@PathVariable String instanceName) {
+        try {
+            dockerService.generateNginxConfig(instanceName); // Call the service method to generate the config
+            return "Nginx config generated for instance: " + instanceName;
+        } catch (Exception e) {
+            return "Error generating Nginx config: " + e.getMessage();
+        }
     }
 
 }

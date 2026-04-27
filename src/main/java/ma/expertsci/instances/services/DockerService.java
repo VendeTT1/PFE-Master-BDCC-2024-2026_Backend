@@ -123,7 +123,6 @@ public class DockerService {
         return 8000 + new Random().nextInt(1000);
     }
 
-
     private void initializeOdooInstance(Path instanceDir, String dbName, String instanceName) throws Exception {
 
         ProcessBuilder pb = new ProcessBuilder(
@@ -148,7 +147,6 @@ public class DockerService {
         }
     }
 
-
     public void startInstanceContainer(String instanceName) throws Exception {
         Path instanceDir = Paths.get("instances/" + instanceName);
 
@@ -162,6 +160,7 @@ public class DockerService {
         Process process = pb.start();
         process.waitFor();
     }
+
     public void stopInstanceContainer(String instanceName) throws Exception {
 
         Path instanceDir = Paths.get("instances/" + instanceName);
@@ -176,11 +175,13 @@ public class DockerService {
         Process process = pb.start();
         process.waitFor();
     }
+
     public void restartInstance(String instanceName) throws Exception {
 
         stopInstanceContainer(instanceName);
         startInstanceContainer(instanceName);
     }
+
     public void runPythonScript(String instanceName) throws Exception {
 
         Path instanceDir = Paths.get("instances/" + instanceName);
@@ -196,5 +197,28 @@ public class DockerService {
         Process processPython = pbPython.start();
         processPython.waitFor();
 
+    }
+
+    public void generateNginxConfig(String instanceName) throws IOException {
+        // Define paths
+        Path nginxTemplatePath = Paths.get(TEMPLATE_PATH + "config-instance-nginx.conf.tpl");
+        Path instanceNginxConfigPath = Paths.get(INSTANCE_PATH + instanceName + "/nginx/conf.d/" + instanceName + ".conf");
+
+        // Ensure the 'nginx/conf.d' directory exists inside the instance folder
+        Path nginxConfDir = instanceNginxConfigPath.getParent();
+        if (!Files.exists(nginxConfDir)) {
+            Files.createDirectories(nginxConfDir); // Create the directory if it doesn't exist
+        }
+
+        // Read the Nginx template
+        String nginxTemplate = Files.readString(nginxTemplatePath);
+
+        // Replace the placeholder with the actual instance name
+        String nginxConfig = nginxTemplate.replace("${INSTANCE_NAME}", instanceName);
+
+        // Write the generated Nginx config to the file
+        Files.writeString(instanceNginxConfigPath, nginxConfig);
+
+        System.out.println("Nginx config file generated for instance: " + instanceName);
     }
 }
