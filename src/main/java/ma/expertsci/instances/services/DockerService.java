@@ -8,9 +8,7 @@ import ma.expertsci.account.service.CompanyService;
 import ma.expertsci.instances.dto.DockerResultDTO;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -221,4 +219,35 @@ public class DockerService {
 
         System.out.println("Nginx config file generated for instance: " + instanceName);
     }
+
+    public void updateHostsFile(String instanceName) throws IOException {
+        // Define the hosts file path
+        File hostsFile = new File("C:/Windows/System32/drivers/etc/hosts");
+
+        // Define the entry we need to add (pointing to localhost)
+        String entry = "127.0.0.1\t" + instanceName + ".experts-itn.com\n";
+
+        // Check if the entry already exists
+        boolean entryExists = false;
+        try (BufferedReader br = new BufferedReader(new FileReader(hostsFile))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.contains(instanceName + ".experts-itn.com")) {
+                    entryExists = true;
+                    break;
+                }
+            }
+        }
+
+        // If the entry doesn't exist, append it to the hosts file
+        if (!entryExists) {
+            try (BufferedWriter bw = new BufferedWriter(new FileWriter(hostsFile, true))) {
+                bw.write(entry);
+            }
+            System.out.println("Hosts file updated with: " + entry);
+        } else {
+            System.out.println("Entry already exists in hosts file.");
+        }
+    }
+
 }
