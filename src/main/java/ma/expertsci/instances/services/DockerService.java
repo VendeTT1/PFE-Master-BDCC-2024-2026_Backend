@@ -101,9 +101,14 @@ public class DockerService {
             Thread.sleep(30000);
 
             runPythonScript(instanceName);
+            // Nginx/domain setup
+            generateNginxConfig(instanceName);
+            updateHostsFile(instanceName);
+            reloadNginx();
 
-            // 9️⃣ Build URL
-            String url = "http://localhost:" + port;
+            // Build domain URL
+            String safeInstanceName = instanceName.toLowerCase();
+            String url = "http://" + safeInstanceName + ".experts-itn.com";
 
             return new DockerResultDTO(
                     instanceName + "_app",

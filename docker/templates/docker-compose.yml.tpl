@@ -31,8 +31,6 @@ services:
       - COMPANY_DOMAIN=http://${INSTANCE_NAME}.experts-itn.com
       - CLIENT_LOGIN=${OWNER_EMAIL}
       - CLIENT_PASSWORD=
-    ports:
-      - "${PORT}:8069"
     volumes:
       - ${INSTANCE_NAME}_odoo_data:/var/lib/odoo
       - ./odoo.conf:/etc/odoo/odoo.conf
