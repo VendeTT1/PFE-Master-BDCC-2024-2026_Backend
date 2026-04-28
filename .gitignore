@@ -38,3 +38,4 @@ readme.md
 src/main/resources/application.properties
 docker/**
 instances/**
+nginx/conf.d/**
