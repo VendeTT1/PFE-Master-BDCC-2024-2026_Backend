@@ -1,6 +1,11 @@
 package ma.expertsci;
 
 import ma.expertsci.account.entities.*;
+import ma.expertsci.account.entities.company.Company;
+import ma.expertsci.account.entities.company.CompanyStatus;
+import ma.expertsci.account.entities.user.User;
+import ma.expertsci.account.entities.user.UserRole;
+import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
@@ -40,7 +45,7 @@ public class PfeMasterApplication {
 //                    .password("123456") // plain for now (we'll hash later)
 //                    .firstName("Admin")
 //                    .lastName("User")
-//                    .role(UserRole.OWNER)
+//                    .role(UserRole.ADMIN)
 //                    .status(UserStatus.ACTIVE)
 //                    .createdAt(LocalDateTime.now())
 //                    .company(company)
@@ -52,7 +57,7 @@ public class PfeMasterApplication {
 //                    .password("123456")
 //                    .firstName("Client")
 //                    .lastName("User")
-//                    .role(UserRole.CLIENT)
+//                    .role(UserRole.OWNER)
 //                    .status(UserStatus.ACTIVE)
 //                    .createdAt(LocalDateTime.now())
 //                    .company(company)

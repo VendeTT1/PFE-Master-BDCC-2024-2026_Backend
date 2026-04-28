@@ -198,26 +198,24 @@ public class DockerService {
     }
 
     public void generateNginxConfig(String instanceName) throws IOException {
-        // Define paths
+        String safeInstanceName = instanceName.toLowerCase();
+
         Path nginxTemplatePath = Paths.get(TEMPLATE_PATH + "config-instance-nginx.conf.tpl");
-        Path instanceNginxConfigPath = Paths.get(INSTANCE_PATH + instanceName + "/nginx/conf.d/" + instanceName + ".conf");
 
-        // Ensure the 'nginx/conf.d' directory exists inside the instance folder
-        Path nginxConfDir = instanceNginxConfigPath.getParent();
-        if (!Files.exists(nginxConfDir)) {
-            Files.createDirectories(nginxConfDir); // Create the directory if it doesn't exist
-        }
+        Path nginxConfPath = Paths.get(
+                "nginx/conf.d/" + safeInstanceName + ".conf"
+        );
 
-        // Read the Nginx template
+        Files.createDirectories(nginxConfPath.getParent());
+
         String nginxTemplate = Files.readString(nginxTemplatePath);
 
-        // Replace the placeholder with the actual instance name
-        String nginxConfig = nginxTemplate.replace("${INSTANCE_NAME}", instanceName);
+        String nginxConfig = nginxTemplate
+                .replace("${INSTANCE_NAME}", safeInstanceName);
 
-        // Write the generated Nginx config to the file
-        Files.writeString(instanceNginxConfigPath, nginxConfig);
+        Files.writeString(nginxConfPath, nginxConfig);
 
-        System.out.println("Nginx config file generated for instance: " + instanceName);
+        System.out.println("Nginx config generated at: " + nginxConfPath.toAbsolutePath());
     }
 
     public void updateHostsFile(String instanceName) throws IOException {
@@ -245,9 +243,27 @@ public class DockerService {
                 bw.write(entry);
             }
             System.out.println("Hosts file updated with: " + entry);
+//            return entry;
         } else {
             System.out.println("Entry already exists in hosts file.");
+//            return "Entry already exists in hosts file.";
         }
     }
 
+    public void reloadNginx() throws Exception {
+        ProcessBuilder pb = new ProcessBuilder(
+                "docker", "exec", "nginx_proxy", "nginx", "-s", "reload"
+        );
+
+        pb.redirectErrorStream(true);
+
+        Process process = pb.start();
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0) {
+            throw new RuntimeException("Nginx reload failed");
+        }
+
+        System.out.println("Nginx reloaded successfully");
+    }
 }

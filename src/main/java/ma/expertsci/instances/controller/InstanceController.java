@@ -127,6 +127,7 @@ public class InstanceController {
             dockerService.generateNginxConfig(instanceName); // Call the service method to generate the config
             // After generating the Nginx config
             dockerService.updateHostsFile(instanceName); // Update hosts file with the new domain
+            dockerService.reloadNginx();
             return "Nginx config generated for instance: " + instanceName;
         } catch (Exception e) {
             return "Error generating Nginx config: " + e.getMessage();

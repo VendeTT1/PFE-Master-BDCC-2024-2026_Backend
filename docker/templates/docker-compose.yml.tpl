@@ -9,7 +9,7 @@ services:
     volumes:
       - ${INSTANCE_NAME}_db_data:/var/lib/postgresql/data
     networks:
-      - odoo_net_${INSTANCE_NAME}  # Added a space after the hyphen
+      - instance_private_net
 
   ${INSTANCE_NAME}_app:
     image: odoo:18
@@ -20,7 +20,6 @@ services:
       - HOST=${INSTANCE_NAME}_db
       - USER=odoo
       - PASSWORD=${DB_PASSWORD}
-#      - script.py env
       - ODOO_URL=http://localhost:8069
       - ODOO_DB=${DB_NAME}
       - OLD_ADMIN_LOGIN=admin
@@ -29,7 +28,7 @@ services:
       - NEW_ADMIN_PASSWORD=
       - COMPANY_NAME=${INSTANCE_NAME}
       - COMPANY_PHONE=+212600000000
-      - COMPANY_DOMAIN=https://${INSTANCE_NAME}.example.com
+      - COMPANY_DOMAIN=http://${INSTANCE_NAME}.experts-itn.com
       - CLIENT_LOGIN=${OWNER_EMAIL}
       - CLIENT_PASSWORD=
     ports:
@@ -40,15 +39,20 @@ services:
       - C:/Users/VendeTTa/IdeaProjects/PFE-MASTER/custom_odoo_addon:/mnt/extra-addons
       - ./script.py:/script/script.py
     networks:
-      - odoo_net_${INSTANCE_NAME}
+      - instance_private_net
+      - odoo_proxy_net
 
 networks:
-  odoo_net_${INSTANCE_NAME}:
-    name: odoo_net_${INSTANCE_NAME}
+  instance_private_net:
+    name: ${INSTANCE_NAME}_private_net
     driver: bridge
+
+  odoo_proxy_net:
+    external: true
 
 volumes:
   ${INSTANCE_NAME}_db_data:
     name: ${INSTANCE_NAME}_db_data
+
   ${INSTANCE_NAME}_odoo_data:
     name: ${INSTANCE_NAME}_odoo_data
