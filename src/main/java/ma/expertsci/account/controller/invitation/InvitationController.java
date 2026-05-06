@@ -27,7 +27,7 @@ public class InvitationController {
     public ResponseEntity<InvitationResponseDTO> invite(
             @RequestBody InvitationRequestDTO request,
             Authentication authentication
-    ) {
+    ) throws Exception {
         String email = authentication.getName();
 
         User owner = userRepository

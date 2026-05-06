@@ -36,6 +36,7 @@ services:
       - ./odoo.conf:/etc/odoo/odoo.conf
       - C:/Users/VendeTTa/IdeaProjects/PFE-MASTER/custom_odoo_addon:/mnt/extra-addons
       - ./script.py:/script/script.py
+      - ./create_staff_user.py:/script/create_staff_user.py
     networks:
       - instance_private_net
       - odoo_proxy_net

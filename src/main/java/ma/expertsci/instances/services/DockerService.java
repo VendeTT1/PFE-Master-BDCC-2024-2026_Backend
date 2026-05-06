@@ -62,14 +62,19 @@ public class DockerService {
                     Paths.get(TEMPLATE_PATH + "script.py.tpl")
             );
 
+            String createStaffUserFile = Files.readString(
+                    Paths.get(TEMPLATE_PATH + "create_staff_user.py.tpl")
+            );
+
 
             // 5️⃣ Replace variables in the templates
             String compose = dockerComposeTemplate
                     .replace("${INSTANCE_NAME}", instanceName)
                     .replace("${DB_NAME}", dbName)
                     .replace("${DB_PASSWORD}", dbPassword)
-                    .replace("${OWNER_EMAIL}",ownerEmail)
-                    .replace("${PORT}", String.valueOf(port));
+                    .replace("${OWNER_EMAIL}",ownerEmail);
+//                    .replace("${PORT}", String.valueOf(port)
+
 
             String odooConf = odooConfigTemplate
                     .replace("${ADMIN_PASSWORD}", adminPassword)
@@ -81,6 +86,7 @@ public class DockerService {
             Files.writeString(instanceDir.resolve("odoo.conf"), odooConf);
             Files.writeString(instanceDir.resolve("Dockerfile"), dockerFileTemplate);
             Files.writeString(instanceDir.resolve("script.py"), pythonFileTemplate);
+            Files.writeString(instanceDir.resolve("create_staff_user.py"), createStaffUserFile);
 
             // 7️⃣ Run docker-compose
             ProcessBuilder pb = new ProcessBuilder(

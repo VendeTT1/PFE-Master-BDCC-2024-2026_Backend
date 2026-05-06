@@ -16,6 +16,8 @@ import ma.expertsci.emailconf.service.EmailService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -29,7 +31,7 @@ public class InvitationService {
     private final EmailService emailService;
 
     @Transactional
-    public InvitationResponseDTO inviteStaff(InvitationRequestDTO request, Company company) {
+    public InvitationResponseDTO inviteStaff(InvitationRequestDTO request, Company company) throws Exception {
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("User with this email already exists");
@@ -60,6 +62,8 @@ public class InvitationService {
 
         invitationRepository.save(invitation);
 
+        createStaffUserInOdoo(user, temporaryPassword);
+
         emailService.sendStaffInvite(
                 request.getEmail(),
                 request.getFirstName(),
@@ -76,5 +80,38 @@ public class InvitationService {
 
     private String generateTemporaryPassword() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+    }
+
+    public void createStaffUserInOdoo(User user, String temporaryPassword) throws Exception {
+        String instanceName = user.getCompany().getName();
+
+        ProcessBuilder pb = new ProcessBuilder(
+                "docker", "exec",
+                instanceName + "_app",
+                "python3",
+                "/script/create_staff_user.py",
+                user.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
+                temporaryPassword
+        );
+        pb.redirectErrorStream(true);
+
+        Process process = pb.start();
+
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream())
+        )) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println("[ODOO STAFF SCRIPT] " + line);
+            }
+        }
+
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0) {
+            throw new RuntimeException("Failed to create staff user in Odoo");
+        }
     }
 }
