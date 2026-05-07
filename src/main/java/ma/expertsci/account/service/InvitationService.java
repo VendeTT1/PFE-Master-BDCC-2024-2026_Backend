@@ -13,6 +13,7 @@ import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.InvitationRepository;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.emailconf.service.EmailService;
+import ma.expertsci.subscriptions.service.SubscriptionService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +30,7 @@ public class InvitationService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final SubscriptionService subscriptionService;
 
     @Transactional
     public InvitationResponseDTO inviteStaff(InvitationRequestDTO request, Company company) throws Exception {
@@ -36,6 +38,8 @@ public class InvitationService {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("User with this email already exists");
         }
+
+        subscriptionService.checkSubscriptionValidity(company);
 
         String temporaryPassword = generateTemporaryPassword();
 

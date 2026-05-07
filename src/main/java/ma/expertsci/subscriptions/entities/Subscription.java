@@ -34,4 +34,13 @@ public class Subscription {
     private LocalDateTime startDate;
 
     private LocalDateTime endDate;
+
+    //number of users included in the subscription default should <= 5 else pay more for adding users
+    private int includedUsers;
+
+    // number of extra users
+    private int extraUsers;
+
+    //number of active users per subscription
+    private int activeUsersSnapshot;
 }

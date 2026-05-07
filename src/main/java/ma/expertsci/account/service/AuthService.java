@@ -94,10 +94,14 @@ public class AuthService {
                 )
         );
 
+//        find user
         User user = userRepository
                 .findByEmail(request.getEmail())
                 .orElseThrow();
+//      check if the user's company if active or not
+        subscriptionService.checkSubscriptionValidity(user.getCompany());
 
+//        generate JWT and Refresh token for security purposes
         String accessToken = jwtService.generateToken(
                 (UserDetails) Objects.requireNonNull(authentication.getPrincipal())
         );

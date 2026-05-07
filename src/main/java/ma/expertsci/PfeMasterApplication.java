@@ -21,40 +21,40 @@ public class PfeMasterApplication {
     public static void main(String[] args) {
         SpringApplication.run(PfeMasterApplication.class, args);
     }
-    @Bean
-    CommandLineRunner initData(
-            CompanyRepository companyRepository,
-            UserRepository userRepository
-    ) {
-        return args -> {
-
-            // Create Company
-            Company company = Company.builder()
-                    .name("Experts ITN")
-                    .country("Morocco")
-                    .domainName("experts-itn")
-                    .status(CompanyStatus.ACTIVE)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-
-            company = companyRepository.save(company);
-
-            // Create User 1
-            User user1 = User.builder()
-                    .email("admin@experts-itn.com")
-                    .password("123456") // plain for now (we'll hash later)
-                    .firstName("Admin")
-                    .lastName("User")
-                    .role(UserRole.ADMIN)
-                    .status(UserStatus.ACTIVE)
-                    .createdAt(LocalDateTime.now())
-                    .company(company)
-                    .build();
-
+//    @Bean
+//    CommandLineRunner initData(
+//            CompanyRepository companyRepository,
+//            UserRepository userRepository
+//    ) {
+//        return args -> {
+//
+//            // Create Company
+//            Company company = Company.builder()
+//                    .name("Experts ITN")
+//                    .country("Morocco")
+//                    .domainName("experts-itn")
+//                    .status(CompanyStatus.ACTIVE)
+//                    .createdAt(LocalDateTime.now())
+//                    .build();
+//
+//            company = companyRepository.save(company);
+//
+//            // Create User 1
+//            User user1 = User.builder()
+//                    .email("admin@experts-itn.com")
+//                    .password("$2a$10$JCuH3yyRZgAciAM4yOaSmOhfZomsuR0DzylQW1PCUrVRNcSUjXZmS") // plain for now (we'll hash later)
+//                    .firstName("Admin")
+//                    .lastName("User")
+//                    .role(UserRole.ADMIN)
+//                    .status(UserStatus.ACTIVE)
+//                    .createdAt(LocalDateTime.now())
+//                    .company(company)
+//                    .build();
+//
 //            // Create User 2
 //            User user2 = User.builder()
 //                    .email("client@experts-itn.com")
-//                    .password("123456")
+//                    .password("$2a$10$JCuH3yyRZgAciAM4yOaSmOhfZomsuR0DzylQW1PCUrVRNcSUjXZmS")
 //                    .firstName("Client")
 //                    .lastName("User")
 //                    .role(UserRole.OWNER)
@@ -63,10 +63,12 @@ public class PfeMasterApplication {
 //                    .company(company)
 //                    .build();
 //
-            userRepository.save(user1);
+//            userRepository.save(user1);
 //            userRepository.save(user2);
+//
+//            System.out.println("Company and users created successfully!");
+//        };
 
-            System.out.println("Company and users created successfully!");
-        };
-    }
+//    }
 }
+
