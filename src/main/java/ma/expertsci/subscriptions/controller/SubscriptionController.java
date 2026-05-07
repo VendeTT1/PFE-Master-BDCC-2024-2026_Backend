@@ -1,6 +1,8 @@
 package ma.expertsci.subscriptions.controller;
 
 import lombok.RequiredArgsConstructor;
+import ma.expertsci.account.entities.company.Company;
+import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.subscriptions.dto.SubscriptionResponseDTO;
 import ma.expertsci.subscriptions.entities.Subscription;
 import ma.expertsci.subscriptions.repository.SubscriptionRepository;
@@ -8,6 +10,7 @@ import ma.expertsci.subscriptions.service.SubscriptionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -21,6 +24,7 @@ import java.util.List;
 public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
+    private final CompanyRepository companyRepository;
 
     @PreAuthorize("hasRole('OWNER')")
     @GetMapping
@@ -42,6 +46,22 @@ public class SubscriptionController {
         return ResponseEntity.ok(
                 subscriptionService.getAllSubscriptionsForAdmin(pageable)
         );
+    }
+
+    @GetMapping("/check_status/{companyId}")
+    public ResponseEntity<String> checkSubscriptionStatus(@PathVariable Long companyId) {
+
+        // Retrieve the company from the ID
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new RuntimeException("Company not found"));
+
+        // Check the subscription validity
+        try {
+            subscriptionService.checkSubscriptionValidity(company);
+            return ResponseEntity.ok("ACTIVE"); // Subscription is valid
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("EXPIRED"); // Subscription is expired
+        }
     }
 
 }

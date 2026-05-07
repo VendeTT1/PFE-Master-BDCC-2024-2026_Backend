@@ -39,22 +39,6 @@ public class SubscriptionService {
         return subscriptionRepository.save(subscription);
     }
 
-    // This checks if the subscription is active or expired
-    public boolean isSubscriptionActive(Company company) {
-
-        Subscription subscription = subscriptionRepository
-                .findByCompany(company)
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
-
-        if (subscription.getEndDate().isBefore(LocalDateTime.now())) {
-            subscription.setStatus(SubscriptionStatus.EXPIRED);
-            subscriptionRepository.save(subscription);
-            return false;  // Subscription is expired
-        }
-
-        return subscription.getStatus() == SubscriptionStatus.ACTIVE;  // Active subscription
-    }
-
     // This method will enforce that the company can use the service
     public void checkSubscriptionValidity(Company company) {
 
@@ -64,13 +48,23 @@ public class SubscriptionService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // Check if the subscription is suspended or expired
+        // Check if subscription is expired
         if (subscription.getStatus() == SubscriptionStatus.SUSPENDED) {
             throw new RuntimeException("Subscription is suspended");
         }
 
-        if (subscription.getStatus() == SubscriptionStatus.EXPIRED ||
-                (subscription.getEndDate() != null && subscription.getEndDate().isBefore(now))) {
+        if (subscription.getStatus() == SubscriptionStatus.EXPIRED) {
+            if (subscription.getEndDate().isAfter(now)) {
+                // Reactivate the subscription
+                subscription.setStatus(SubscriptionStatus.ACTIVE);
+                subscriptionRepository.save(subscription);
+            } else {
+                throw new RuntimeException("Subscription has expired");
+            }
+        }
+
+        // Check if subscription is active
+        if (subscription.getEndDate() != null && subscription.getEndDate().isBefore(now)) {
             subscription.setStatus(SubscriptionStatus.EXPIRED);
             subscriptionRepository.save(subscription);
             throw new RuntimeException("Subscription has expired");
