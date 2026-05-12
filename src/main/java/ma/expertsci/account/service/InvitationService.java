@@ -13,6 +13,9 @@ import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.InvitationRepository;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.emailconf.service.EmailService;
+import ma.expertsci.subscriptions.entities.PlanType;
+import ma.expertsci.subscriptions.entities.Subscription;
+import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import ma.expertsci.subscriptions.service.SubscriptionService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,7 @@ public class InvitationService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final SubscriptionService subscriptionService;
+    private final SubscriptionRepository subscriptionRepository;
 
     @Transactional
     public InvitationResponseDTO inviteStaff(InvitationRequestDTO request, Company company) throws Exception {
@@ -38,6 +42,11 @@ public class InvitationService {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("User with this email already exists");
         }
+
+        if (!canInviteStaff(company)) {
+            throw new RuntimeException("User limit reached for the trial period. Upgrade required.");
+        }
+
 
         subscriptionService.checkSubscriptionValidity(company);
 
@@ -118,4 +127,19 @@ public class InvitationService {
             throw new RuntimeException("Failed to create staff user in Odoo");
         }
     }
+
+    public boolean canInviteStaff(Company company) {
+        Subscription subscription = subscriptionRepository.findByCompany(company)
+                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+
+        int activeUsers = userRepository.countByCompanyAndStatus(company, UserStatus.ACTIVE);
+
+        // Allow only up to 5 users during trial
+        if (subscription.getPlanType() == PlanType.TRIAL && activeUsers >= 5) {
+            return false;  // Limit reached, block new invites
+        }
+
+        return true;  // Allow invites if under limit
+    }
+
 }
