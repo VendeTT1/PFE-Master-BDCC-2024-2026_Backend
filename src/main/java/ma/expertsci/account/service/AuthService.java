@@ -99,7 +99,9 @@ public class AuthService {
                 .findByEmail(request.getEmail())
                 .orElseThrow();
 //      check if the user's company if active or not
-        subscriptionService.checkSubscriptionValidity(user.getCompany());
+        if (user.getRole() != UserRole.ADMIN) {
+            subscriptionService.checkSubscriptionValidity(user.getCompany());
+        }
 
 //        generate JWT and Refresh token for security purposes
         String accessToken = jwtService.generateToken(

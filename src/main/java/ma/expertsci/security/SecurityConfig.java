@@ -3,6 +3,7 @@ package ma.expertsci.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -40,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/subscription")
                         .hasRole("OWNER")
 
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public endpoints
                         .requestMatchers("/api/auth/**",
                                 "/api/instances/generate-nginx-config/**",
@@ -78,7 +80,7 @@ public class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins("http://localhost:5173")  // Replace with allowed origins
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH")  // Add allowed methods
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH","OPTIONS")  // Add allowed methods
                         .allowedHeaders("*")// Or specify specific headers
 //                        .allowedOriginPatterns("*")
                         .allowCredentials(true);  // Allow credentials if needed

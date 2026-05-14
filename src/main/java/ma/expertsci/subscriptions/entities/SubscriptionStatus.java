@@ -1,5 +1,5 @@
 package ma.expertsci.subscriptions.entities;
 
 public enum SubscriptionStatus {
-    ACTIVE, SUSPENDED, EXPIRED
+    ACTIVE, SUSPENDED, EXPIRED, PENDING_PAYMENT;
 }

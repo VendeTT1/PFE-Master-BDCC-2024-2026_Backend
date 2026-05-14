@@ -3,7 +3,9 @@ package ma.expertsci.subscriptions.controller;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.repository.CompanyRepository;
+import ma.expertsci.subscriptions.dto.SubscriptionPlanDTO;
 import ma.expertsci.subscriptions.dto.SubscriptionResponseDTO;
+import ma.expertsci.subscriptions.entities.PlanType;
 import ma.expertsci.subscriptions.entities.Subscription;
 import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import ma.expertsci.subscriptions.service.SubscriptionService;
@@ -64,4 +66,27 @@ public class SubscriptionController {
         }
     }
 
+    // Get available plans for the user
+    @PreAuthorize("hasRole('OWNER')")
+    @GetMapping("/plans")
+    public List<SubscriptionPlanDTO> getAvailablePlans() {
+        return subscriptionService.getAvailablePlans();
+    }
+
+    @PreAuthorize("hasRole('OWNER')")
+    @PutMapping("/UpgradeSubscription/{companyName}/{planType}")
+    public ResponseEntity<HttpStatus> UpgradeSubscription(@PathVariable String companyName,
+                                                         @PathVariable PlanType planType){
+        try {
+            Company company = companyRepository.findByName(companyName);
+            System.out.println("found company :-------->>>:"+company.getName());
+            subscriptionService.UpgradeSubscriptionForPlan(company, planType);
+        }
+        catch (RuntimeException e) {
+            e.printStackTrace();
+        }
+
+
+        return ResponseEntity.ok(HttpStatus.OK);
+    }
 }

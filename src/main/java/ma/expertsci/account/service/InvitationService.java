@@ -83,6 +83,8 @@ public class InvitationService {
                 temporaryPassword
         );
 
+        subscriptionService.activeUsersSnapshotCounter(company.getName());
+
         return InvitationResponseDTO.builder()
                 .email(request.getEmail())
                 .status("SENT")

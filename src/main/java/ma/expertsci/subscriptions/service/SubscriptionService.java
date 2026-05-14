@@ -3,7 +3,11 @@ package ma.expertsci.subscriptions.service;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.entities.user.User;
+import ma.expertsci.account.entities.user.UserRole;
+import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
+import ma.expertsci.account.service.CompanyService;
+import ma.expertsci.subscriptions.dto.SubscriptionPlanDTO;
 import ma.expertsci.subscriptions.dto.SubscriptionResponseDTO;
 import ma.expertsci.subscriptions.entities.PlanType;
 import ma.expertsci.subscriptions.entities.Subscription;
@@ -11,10 +15,14 @@ import ma.expertsci.subscriptions.entities.SubscriptionStatus;
 import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +30,7 @@ public class SubscriptionService {
 
     private final SubscriptionRepository subscriptionRepository;
     private final UserRepository userRepository;
+    private final CompanyRepository companyRepository;
 
     // Initialize a trial subscription for a company
     public Subscription initializeTrial(Company company) {
@@ -94,10 +103,12 @@ public class SubscriptionService {
                 .orElseThrow(() -> new RuntimeException("Subscription not found"));
 
         return SubscriptionResponseDTO.builder()
+                .companyName(subscription.getCompany().getName())
                 .planType(subscription.getPlanType().name())
                 .status(subscription.getStatus().name())
                 .startDate(subscription.getStartDate())
                 .endDate(subscription.getEndDate())
+                .userEmail(user.getEmail())
                 .build();
     }
 
@@ -123,4 +134,68 @@ public class SubscriptionService {
                     .build();
         });
     }
+
+    public List<SubscriptionPlanDTO> getAvailablePlans() {
+        return Arrays.stream(PlanType.values())  // PlanType.values() gives you all the enum values
+                .map(plan -> SubscriptionPlanDTO.builder()
+                        .code(plan.name())
+                        .label(formatPlanLabel(plan))
+                        .includedUsers(plan.getIncludedUsers())
+                        .paid(plan.isPaid())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private String formatPlanLabel(PlanType planType) {
+        // This method returns the label (e.g., "Trial" for TRIAL, "Premium" for PREMIUM)
+        switch (planType) {
+            case TRIAL:
+                return "Trial";
+            case PREMIUM:
+                return "Premium";
+            case ENTERPRISE:
+                return "Enterprise";
+            default:
+                throw new IllegalArgumentException("Unknown plan type: " + planType);
+        }
+    }
+
+    public Subscription UpgradeSubscriptionForPlan(Company company, PlanType selectedPlan) {
+        Subscription subscription = subscriptionRepository
+                .findByCompany(company)
+                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+        if (subscription == null) {
+            Subscription newSub = new Subscription();
+            newSub.setCompany(company);
+            newSub.setPlanType(selectedPlan);
+            newSub.setStatus(SubscriptionStatus.ACTIVE);  // Waiting for payment
+            newSub.setStartDate(LocalDateTime.now());
+            newSub.setEndDate(LocalDateTime.now().plusDays(selectedPlan.getDurationInDays()));  // Duration
+            newSub.setIncludedUsers(selectedPlan.getIncludedUsers());
+            newSub.setActiveUsersSnapshot(1);
+            return subscriptionRepository.save(newSub);
+        }
+        else {
+
+            subscription.setPlanType(selectedPlan);
+            subscription.setStatus(SubscriptionStatus.ACTIVE);  // Waiting for payment
+            subscription.setStartDate(LocalDateTime.now());
+            subscription.setEndDate(LocalDateTime.now().plusDays(selectedPlan.getDurationInDays()));  // Duration
+            subscription.setIncludedUsers(selectedPlan.getIncludedUsers());
+            subscription.setActiveUsersSnapshot(1);// always one since the owner is an active user in the instance //TO DO : remember to increment this value after each invitation accepted
+
+            return subscriptionRepository.save(subscription);
+        }
+    }
+
+    public void activeUsersSnapshotCounter(String company) {
+
+        Company cp = companyRepository.findByName(company);
+
+        Subscription sub = subscriptionRepository.findByCompany(cp).orElseThrow();
+
+        sub.setActiveUsersSnapshot(sub.getActiveUsersSnapshot() + 1);
+        System.out.println("counter incremented, new number of users is : " + sub.getActiveUsersSnapshot());
+    }
+
 }
