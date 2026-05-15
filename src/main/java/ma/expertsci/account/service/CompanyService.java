@@ -9,6 +9,9 @@ import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
+import ma.expertsci.exception.BusinessRuleViolationException;
+import ma.expertsci.exception.ForbiddenActionException;
+import ma.expertsci.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,7 +24,8 @@ public class CompanyService {
 
     public Company getCurrentCompany(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND",
+                        "User with email " + email + " not found"));
 
         return user.getCompany();
     }
@@ -34,7 +38,8 @@ public class CompanyService {
                 .stream()
                 .filter(u -> u.getRole().name().equals("OWNER"))
                 .findFirst()
-                .orElseThrow();
+                .orElseThrow(() -> new ResourceNotFoundException("COMPANY_OWNER_NOT_FOUND",
+                        "No owner found for company " + company.getName()));
 
         return CompanyResponseDTO.builder()
                 .id(company.getId())
@@ -85,14 +90,17 @@ public class CompanyService {
         Company company = getCurrentCompany(email);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND",
+                        "User with id " + userId + " not found"));
 
         if (!user.getCompany().getId().equals(company.getId())) {
-            throw new RuntimeException("User does not belong to your company");
+            throw new ForbiddenActionException("USER_NOT_IN_COMPANY",
+                    "User does not belong to your company");
         }
 
         if (user.getRole().name().equals("OWNER")) {
-            throw new RuntimeException("Cannot deactivate owner");
+            throw new BusinessRuleViolationException("CANNOT_DEACTIVATE_OWNER",
+                    "Cannot deactivate the company owner");
         }
 
         user.setStatus(UserStatus.INACTIVE);

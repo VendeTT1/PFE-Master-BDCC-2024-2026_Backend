@@ -8,6 +8,7 @@ import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.account.service.InvitationService;
+import ma.expertsci.exception.ResourceNotFoundException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -27,12 +28,13 @@ public class InvitationController {
     public ResponseEntity<InvitationResponseDTO> invite(
             @RequestBody InvitationRequestDTO request,
             Authentication authentication
-    ) throws Exception {
+    ) {
         String email = authentication.getName();
 
         User owner = userRepository
                 .findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND",
+                        "User with email " + email + " not found"));
 
         Company company = owner.getCompany();
 

@@ -14,10 +14,11 @@ import ma.expertsci.account.entities.company.CompanyStatus;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.entities.user.UserRole;
 import ma.expertsci.account.entities.user.UserStatus;
-import ma.expertsci.account.exception.DataAlreadyExistException;
-import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
+import ma.expertsci.exception.InvalidCredentialsException;
+import ma.expertsci.exception.ResourceAlreadyExistsException;
+import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.security.JwtService;
 import ma.expertsci.security.RefreshTokenService;
 import ma.expertsci.subscriptions.service.SubscriptionService;
@@ -44,10 +45,10 @@ public class AuthService {
     private final SubscriptionService subscriptionService;
 
 
-    public RegisterResponseDTO register(RegisterRequestDTO request) throws DataAlreadyExistException {
+    public RegisterResponseDTO register(RegisterRequestDTO request) {
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new DataAlreadyExistException("Email already exists");
+            throw new ResourceAlreadyExistsException("EMAIL_ALREADY_EXISTS", "Email already exists");
         }
 
 //        if (request.getUserRole() == UserRole.STAFF) {
@@ -85,7 +86,7 @@ public class AuthService {
                 .build();
     }
 
-    public UserResponseDTO login(LoginRequestDTO request, HttpServletResponse response) throws InvalidCredentialsException {
+    public UserResponseDTO login(LoginRequestDTO request, HttpServletResponse response) {
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -97,7 +98,7 @@ public class AuthService {
 //        find user
         User user = userRepository
                 .findByEmail(request.getEmail())
-                .orElseThrow();
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "User not found"));
 //      check if the user's company if active or not
         if (user.getRole() != UserRole.ADMIN) {
             subscriptionService.checkSubscriptionValidity(user.getCompany());
@@ -139,11 +140,12 @@ public class AuthService {
                 .build();
     }
 
-    public void updatePassword(String email, ChangePasswordDTO newPassword) throws InvalidCredentialsException {
-        User user = userRepository.findByEmail(email).orElseThrow();
+    public void updatePassword(String email, ChangePasswordDTO newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "User not found"));
 
         if (!email.equals(user.getEmail())) {
-            throw new InvalidCredentialsException("Invalid email");
+            throw new InvalidCredentialsException("INVALID_EMAIL", "Invalid email");
         }
         user.setPassword(passwordEncoder.encode(newPassword.getNewPassword()));
         userRepository.save(user);

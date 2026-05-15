@@ -5,6 +5,7 @@ import ma.expertsci.account.dto.user.UserDTO;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.UserRepository;
+import ma.expertsci.exception.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -39,7 +40,8 @@ public class UserService {
     }
     public User getUserById(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND",
+                        "User with id " + id + " not found"));
     }
 
     public void deleteUser(Long id) {

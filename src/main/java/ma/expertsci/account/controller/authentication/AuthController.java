@@ -16,8 +16,6 @@ import ma.expertsci.account.dto.registration.RegisterResponseDTO;
 import ma.expertsci.account.dto.registration.RegisterRequestDTO;
 import ma.expertsci.account.entities.RefreshToken;
 import ma.expertsci.account.entities.user.User;
-import ma.expertsci.account.exception.DataAlreadyExistException;
-import ma.expertsci.account.exception.InvalidCredentialsException;
 import ma.expertsci.account.service.AuthService;
 import ma.expertsci.account.service.PasswordResetService;
 import ma.expertsci.security.CookieUtils;
@@ -44,14 +42,14 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<RegisterResponseDTO> register(
             @Valid @RequestBody RegisterRequestDTO request
-    ) throws DataAlreadyExistException {
+    ) {
         return ResponseEntity.ok(registrationService.register(request));
     }
 
     @PostMapping("/login")
     public ResponseEntity<UserResponseDTO> login(
             @Valid @RequestBody LoginRequestDTO request, HttpServletResponse response
-    ) throws InvalidCredentialsException {
+    ) {
         return ResponseEntity.ok(registrationService.login(request, response));
     }
 
