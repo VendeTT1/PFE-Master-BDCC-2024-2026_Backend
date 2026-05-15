@@ -3,12 +3,16 @@ package ma.expertsci.subscriptions.controller;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.repository.CompanyRepository;
+import ma.expertsci.exception.BusinessRuleViolationException;
+import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.subscriptions.dto.SubscriptionPlanDTO;
 import ma.expertsci.subscriptions.dto.SubscriptionResponseDTO;
 import ma.expertsci.subscriptions.entities.PlanType;
 import ma.expertsci.subscriptions.entities.Subscription;
 import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import ma.expertsci.subscriptions.service.SubscriptionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +28,8 @@ import java.util.List;
 @RequestMapping("/api/subscription")
 @RequiredArgsConstructor
 public class SubscriptionController {
+
+    private static final Logger log = LoggerFactory.getLogger(SubscriptionController.class);
 
     private final SubscriptionService subscriptionService;
     private final CompanyRepository companyRepository;
@@ -55,14 +61,19 @@ public class SubscriptionController {
 
         // Retrieve the company from the ID
         Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new RuntimeException("Company not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("COMPANY_NOT_FOUND",
+                        "Company with id " + companyId + " not found"));
 
-        // Check the subscription validity
+        // Check the subscription validity. Business-rule failures map to the polled
+        // "EXPIRED" status the frontend expects; anything else propagates to the
+        // global handler.
         try {
             subscriptionService.checkSubscriptionValidity(company);
-            return ResponseEntity.ok("ACTIVE"); // Subscription is valid
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("EXPIRED"); // Subscription is expired
+            return ResponseEntity.ok("ACTIVE");
+        } catch (BusinessRuleViolationException e) {
+            log.debug("Subscription status for company {} is invalid: [{}] {}",
+                    companyId, e.getErrorCode(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("EXPIRED");
         }
     }
 
@@ -76,17 +87,14 @@ public class SubscriptionController {
     @PreAuthorize("hasRole('OWNER')")
     @PutMapping("/UpgradeSubscription/{companyName}/{planType}")
     public ResponseEntity<HttpStatus> UpgradeSubscription(@PathVariable String companyName,
-                                                         @PathVariable PlanType planType){
-        try {
-            Company company = companyRepository.findByName(companyName);
-            System.out.println("found company :-------->>>:"+company.getName());
-            subscriptionService.UpgradeSubscriptionForPlan(company, planType);
+                                                         @PathVariable PlanType planType) {
+        Company company = companyRepository.findByName(companyName);
+        if (company == null) {
+            throw new ResourceNotFoundException("COMPANY_NOT_FOUND",
+                    "Company with name " + companyName + " not found");
         }
-        catch (RuntimeException e) {
-            e.printStackTrace();
-        }
-
-
+        log.info("Upgrading subscription for company {} to plan {}", company.getName(), planType);
+        subscriptionService.UpgradeSubscriptionForPlan(company, planType);
         return ResponseEntity.ok(HttpStatus.OK);
     }
 }

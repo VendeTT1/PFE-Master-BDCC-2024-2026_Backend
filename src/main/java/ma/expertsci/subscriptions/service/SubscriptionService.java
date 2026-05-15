@@ -7,6 +7,8 @@ import ma.expertsci.account.entities.user.UserRole;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.account.service.CompanyService;
+import ma.expertsci.exception.BusinessRuleViolationException;
+import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.subscriptions.dto.SubscriptionPlanDTO;
 import ma.expertsci.subscriptions.dto.SubscriptionResponseDTO;
 import ma.expertsci.subscriptions.entities.PlanType;
@@ -53,13 +55,15 @@ public class SubscriptionService {
 
         Subscription subscription = subscriptionRepository
                 .findByCompany(company)
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("SUBSCRIPTION_NOT_FOUND",
+                        "No subscription found for company " + company.getName()));
 
         LocalDateTime now = LocalDateTime.now();
 
         // Check if subscription is expired
         if (subscription.getStatus() == SubscriptionStatus.SUSPENDED) {
-            throw new RuntimeException("Subscription is suspended");
+            throw new BusinessRuleViolationException("SUBSCRIPTION_SUSPENDED",
+                    "Subscription is suspended");
         }
 
         if (subscription.getStatus() == SubscriptionStatus.EXPIRED) {
@@ -68,7 +72,8 @@ public class SubscriptionService {
                 subscription.setStatus(SubscriptionStatus.ACTIVE);
                 subscriptionRepository.save(subscription);
             } else {
-                throw new RuntimeException("Subscription has expired");
+                throw new BusinessRuleViolationException("SUBSCRIPTION_EXPIRED",
+                        "Subscription has expired");
             }
         }
 
@@ -76,11 +81,13 @@ public class SubscriptionService {
         if (subscription.getEndDate() != null && subscription.getEndDate().isBefore(now)) {
             subscription.setStatus(SubscriptionStatus.EXPIRED);
             subscriptionRepository.save(subscription);
-            throw new RuntimeException("Subscription has expired");
+            throw new BusinessRuleViolationException("SUBSCRIPTION_EXPIRED",
+                    "Subscription has expired");
         }
 
         if (subscription.getStatus() != SubscriptionStatus.ACTIVE) {
-            throw new RuntimeException("Subscription is not active");
+            throw new BusinessRuleViolationException("SUBSCRIPTION_NOT_ACTIVE",
+                    "Subscription is not active");
         }
     }
 
@@ -92,15 +99,18 @@ public class SubscriptionService {
                 .getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND",
+                        "User with email " + email + " not found"));
 
         if (user.getCompany() == null) {
-            throw new RuntimeException("User has no company");
+            throw new BusinessRuleViolationException("USER_HAS_NO_COMPANY",
+                    "User has no company");
         }
 
         Subscription subscription = subscriptionRepository
                 .findByCompany(user.getCompany())
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("SUBSCRIPTION_NOT_FOUND",
+                        "No subscription found for company " + user.getCompany().getName()));
 
         return SubscriptionResponseDTO.builder()
                 .companyName(subscription.getCompany().getName())
@@ -163,7 +173,8 @@ public class SubscriptionService {
     public Subscription UpgradeSubscriptionForPlan(Company company, PlanType selectedPlan) {
         Subscription subscription = subscriptionRepository
                 .findByCompany(company)
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("SUBSCRIPTION_NOT_FOUND",
+                        "No subscription found for company " + company.getName()));
         if (subscription == null) {
             Subscription newSub = new Subscription();
             newSub.setCompany(company);
@@ -192,7 +203,9 @@ public class SubscriptionService {
 
         Company cp = companyRepository.findByName(company);
 
-        Subscription sub = subscriptionRepository.findByCompany(cp).orElseThrow();
+        Subscription sub = subscriptionRepository.findByCompany(cp)
+                .orElseThrow(() -> new ResourceNotFoundException("SUBSCRIPTION_NOT_FOUND",
+                        "No subscription found for company " + company));
 
         sub.setActiveUsersSnapshot(sub.getActiveUsersSnapshot() + 1);
         System.out.println("counter incremented, new number of users is : " + sub.getActiveUsersSnapshot());
