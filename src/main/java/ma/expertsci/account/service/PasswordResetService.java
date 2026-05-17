@@ -6,6 +6,7 @@ import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.repository.PasswordResetTokenRepository;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.emailconf.service.EmailService;
+import ma.expertsci.exception.BusinessRuleViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -49,14 +50,17 @@ public class PasswordResetService {
     public void resetPassword(String token, String newPassword) {
 
         PasswordResetToken resetToken = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Invalid token"));
+                .orElseThrow(() -> new BusinessRuleViolationException("INVALID_RESET_TOKEN",
+                        "Invalid password reset token"));
 
         if (resetToken.isUsed()) {
-            throw new RuntimeException("Token already used");
+            throw new BusinessRuleViolationException("RESET_TOKEN_ALREADY_USED",
+                    "Password reset token has already been used");
         }
 
         if (resetToken.getExpiryDate().isBefore(Instant.now())) {
-            throw new RuntimeException("Token expired");
+            throw new BusinessRuleViolationException("RESET_TOKEN_EXPIRED",
+                    "Password reset token has expired");
         }
 
         User user = resetToken.getUser();

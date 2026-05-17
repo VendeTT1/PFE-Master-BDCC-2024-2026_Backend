@@ -13,6 +13,9 @@ import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.InvitationRepository;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.emailconf.service.EmailService;
+import ma.expertsci.exception.BusinessRuleViolationException;
+import ma.expertsci.exception.ExternalServiceException;
+import ma.expertsci.exception.ResourceAlreadyExistsException;
 import ma.expertsci.subscriptions.entities.PlanType;
 import ma.expertsci.subscriptions.entities.Subscription;
 import ma.expertsci.subscriptions.repository.SubscriptionRepository;
@@ -21,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -37,14 +41,16 @@ public class InvitationService {
     private final SubscriptionRepository subscriptionRepository;
 
     @Transactional
-    public InvitationResponseDTO inviteStaff(InvitationRequestDTO request, Company company) throws Exception {
+    public InvitationResponseDTO inviteStaff(InvitationRequestDTO request, Company company) {
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("User with this email already exists");
+            throw new ResourceAlreadyExistsException("EMAIL_ALREADY_EXISTS",
+                    "User with this email already exists");
         }
 
         if (!canInviteStaff(company)) {
-            throw new RuntimeException("User limit reached for the trial period. Upgrade required.");
+            throw new BusinessRuleViolationException("STAFF_LIMIT_REACHED",
+                    "User limit reached for the trial period. Upgrade required.");
         }
 
 
@@ -97,7 +103,7 @@ public class InvitationService {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 10);
     }
 
-    public void createStaffUserInOdoo(User user, String temporaryPassword) throws Exception {
+    public void createStaffUserInOdoo(User user, String temporaryPassword) {
         String instanceName = user.getCompany().getName();
 
         ProcessBuilder pb = new ProcessBuilder(
@@ -112,21 +118,31 @@ public class InvitationService {
         );
         pb.redirectErrorStream(true);
 
-        Process process = pb.start();
+        try {
+            Process process = pb.start();
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream())
-        )) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                System.out.println("[ODOO STAFF SCRIPT] " + line);
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream())
+            )) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("[ODOO STAFF SCRIPT] " + line);
+                }
             }
-        }
 
-        int exitCode = process.waitFor();
+            int exitCode = process.waitFor();
 
-        if (exitCode != 0) {
-            throw new RuntimeException("Failed to create staff user in Odoo");
+            if (exitCode != 0) {
+                throw new ExternalServiceException("ODOO_STAFF_CREATION_FAILED",
+                        "Failed to create staff user in Odoo (exit code " + exitCode + ")", null);
+            }
+        } catch (IOException e) {
+            throw new ExternalServiceException("ODOO_STAFF_CREATION_FAILED",
+                    "I/O error while creating staff user in Odoo", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ExternalServiceException("ODOO_STAFF_CREATION_FAILED",
+                    "Interrupted while creating staff user in Odoo", e);
         }
     }
 
