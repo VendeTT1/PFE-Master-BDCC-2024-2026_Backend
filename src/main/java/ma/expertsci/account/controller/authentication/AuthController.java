@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.dto.password.ForgotPasswordRequestDTO;
 import ma.expertsci.account.dto.password.MessageResponseDTO;
 import ma.expertsci.account.dto.password.ResetPasswordRequestDTO;
+import ma.expertsci.account.dto.user.ChangePasswordDTO;
 import ma.expertsci.account.dto.user.UserResponseDTO;
 import ma.expertsci.account.dto.login.LoginRequestDTO;
 import ma.expertsci.account.dto.login.LoginResponseDTO;
@@ -23,6 +24,8 @@ import ma.expertsci.security.RefreshTokenService;
 import ma.expertsci.security.JwtService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,7 +39,7 @@ public class AuthController {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private final PasswordResetService passwordResetService;
-
+    private final AuthService authService;
 
 
     @PostMapping("/register")
@@ -144,6 +147,18 @@ public class AuthController {
                     new MessageResponseDTO("Password updated successfully")
             );
         }
+
+
+    @PreAuthorize("hasRole('OWNER')")
+    @PatchMapping("/updatePassword")
+    public ResponseEntity<MessageResponseDTO> updatePassword(Authentication auth, @RequestBody ChangePasswordDTO newPassword) {
+
+        authService.updatePassword(auth.getName(), newPassword);
+
+        return  ResponseEntity.ok(
+                new MessageResponseDTO("Password updated successfully")
+        );
+    }
 }
 
 

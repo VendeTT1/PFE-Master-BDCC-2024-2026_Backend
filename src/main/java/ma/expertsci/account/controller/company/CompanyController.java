@@ -41,20 +41,20 @@ public class CompanyController {
     }
 
 
+//    @PreAuthorize("hasRole('OWNER')")
+//    @PutMapping
+//    public ResponseEntity<CompanyResponseDTO> updateCompany(
+//            Authentication auth,
+//            @RequestBody UpdateCompanyDTO request
+//    ) {
+//
+//        return ResponseEntity.ok(
+//                companyService.updateCompany(auth.getName(), request)
+//        );
+//    }
+
+
     @PreAuthorize("hasRole('OWNER')")
-    @PutMapping
-    public ResponseEntity<CompanyResponseDTO> updateCompany(
-            Authentication auth,
-            @RequestBody UpdateCompanyDTO request
-    ) {
-
-        return ResponseEntity.ok(
-                companyService.updateCompany(auth.getName(), request)
-        );
-    }
-
-
-    @PreAuthorize("hasRole('OWNER')")//super admin should also be able to list the same
     @GetMapping("/users")
     public ResponseEntity<List<UserResponseDTO>> getUsers(Authentication auth) {
 
