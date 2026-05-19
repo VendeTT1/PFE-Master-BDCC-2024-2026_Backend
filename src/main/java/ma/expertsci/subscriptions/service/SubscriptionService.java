@@ -3,19 +3,19 @@ package ma.expertsci.subscriptions.service;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.entities.user.User;
-import ma.expertsci.account.entities.user.UserRole;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
-import ma.expertsci.account.service.CompanyService;
+import ma.expertsci.exception.BusinessRuleViolationException;
+import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.subscriptions.dto.SubscriptionPlanDTO;
 import ma.expertsci.subscriptions.dto.SubscriptionResponseDTO;
 import ma.expertsci.subscriptions.entities.PlanType;
 import ma.expertsci.subscriptions.entities.Subscription;
 import ma.expertsci.subscriptions.entities.SubscriptionStatus;
+import ma.expertsci.subscriptions.exception.SubscriptionErrorCodes;
 import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -32,7 +32,8 @@ public class SubscriptionService {
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
 
-    // Initialize a trial subscription for a company
+    // ── Initialize a trial subscription for a new company ────────────────────
+
     public Subscription initializeTrial(Company company) {
 
         Subscription subscription = new Subscription();
@@ -48,43 +49,54 @@ public class SubscriptionService {
         return subscriptionRepository.save(subscription);
     }
 
-    // This method will enforce that the company can use the service
+    // ── Enforce that the company may use the service ─────────────────────────
+
     public void checkSubscriptionValidity(Company company) {
 
         Subscription subscription = subscriptionRepository
                 .findByCompany(company)
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        SubscriptionErrorCodes.SUBSCRIPTION_NOT_FOUND,
+                        "No subscription found for company: " + company.getName()));
 
         LocalDateTime now = LocalDateTime.now();
 
-        // Check if subscription is expired
         if (subscription.getStatus() == SubscriptionStatus.SUSPENDED) {
-            throw new RuntimeException("Subscription is suspended");
+            throw new BusinessRuleViolationException(
+                    SubscriptionErrorCodes.SUBSCRIPTION_SUSPENDED,
+                    "Subscription for company '" + company.getName() + "' is currently suspended.");
         }
 
+        // If marked EXPIRED but end-date is still in the future, reactivate
         if (subscription.getStatus() == SubscriptionStatus.EXPIRED) {
             if (subscription.getEndDate().isAfter(now)) {
-                // Reactivate the subscription
                 subscription.setStatus(SubscriptionStatus.ACTIVE);
                 subscriptionRepository.save(subscription);
             } else {
-                throw new RuntimeException("Subscription has expired");
+                throw new BusinessRuleViolationException(
+                        SubscriptionErrorCodes.SUBSCRIPTION_EXPIRED,
+                        "Subscription for company '" + company.getName() + "' has expired.");
             }
         }
 
-        // Check if subscription is active
+        // Detect expiry on a still-ACTIVE subscription
         if (subscription.getEndDate() != null && subscription.getEndDate().isBefore(now)) {
             subscription.setStatus(SubscriptionStatus.EXPIRED);
             subscriptionRepository.save(subscription);
-            throw new RuntimeException("Subscription has expired");
+            throw new BusinessRuleViolationException(
+                    SubscriptionErrorCodes.SUBSCRIPTION_EXPIRED,
+                    "Subscription for company '" + company.getName() + "' has expired.");
         }
 
         if (subscription.getStatus() != SubscriptionStatus.ACTIVE) {
-            throw new RuntimeException("Subscription is not active");
+            throw new BusinessRuleViolationException(
+                    SubscriptionErrorCodes.SUBSCRIPTION_INACTIVE,
+                    "Subscription for company '" + company.getName() + "' is not active.");
         }
     }
 
-    // Retrieve subscription info for the current user (based on logged-in user)
+    // ── Retrieve subscription info for the authenticated user ────────────────
+
     public SubscriptionResponseDTO getSubscriptionForCurrentUser() {
 
         String email = SecurityContextHolder.getContext()
@@ -92,15 +104,21 @@ public class SubscriptionService {
                 .getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        SubscriptionErrorCodes.USER_NOT_FOUND,
+                        "No user found with email: " + email));
 
         if (user.getCompany() == null) {
-            throw new RuntimeException("User has no company");
+            throw new ResourceNotFoundException(
+                    SubscriptionErrorCodes.COMPANY_NOT_FOUND,
+                    "User '" + email + "' is not associated with any company.");
         }
 
         Subscription subscription = subscriptionRepository
                 .findByCompany(user.getCompany())
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        SubscriptionErrorCodes.SUBSCRIPTION_NOT_FOUND,
+                        "No subscription found for company: " + user.getCompany().getName()));
 
         return SubscriptionResponseDTO.builder()
                 .companyName(subscription.getCompany().getName())
@@ -112,14 +130,14 @@ public class SubscriptionService {
                 .build();
     }
 
-    // List all subscriptions for the admin user
+    // ── List all subscriptions (admin) ───────────────────────────────────────
+
     public Page<SubscriptionResponseDTO> getAllSubscriptionsForAdmin(Pageable pageable) {
 
         Page<Subscription> subscriptionsPage = subscriptionRepository.findAll(pageable);
 
         return subscriptionsPage.map(subscription -> {
 
-            // Extract the user from the company
             User user = subscription.getCompany().getUsers().stream()
                     .findFirst()
                     .orElse(null);
@@ -135,8 +153,10 @@ public class SubscriptionService {
         });
     }
 
+    // ── Available plans catalog ──────────────────────────────────────────────
+
     public List<SubscriptionPlanDTO> getAvailablePlans() {
-        return Arrays.stream(PlanType.values())  // PlanType.values() gives you all the enum values
+        return Arrays.stream(PlanType.values())
                 .map(plan -> SubscriptionPlanDTO.builder()
                         .code(plan.name())
                         .label(formatPlanLabel(plan))
@@ -147,55 +167,64 @@ public class SubscriptionService {
     }
 
     private String formatPlanLabel(PlanType planType) {
-        // This method returns the label (e.g., "Trial" for TRIAL, "Premium" for PREMIUM)
         switch (planType) {
-            case TRIAL:
-                return "Trial";
-            case PREMIUM:
-                return "Premium";
-            case ENTERPRISE:
-                return "Enterprise";
+            case TRIAL:      return "Trial";
+            case PREMIUM:    return "Premium";
+            case ENTERPRISE: return "Enterprise";
             default:
-                throw new IllegalArgumentException("Unknown plan type: " + planType);
+                throw new BusinessRuleViolationException(
+                        SubscriptionErrorCodes.UNKNOWN_PLAN_TYPE,
+                        "Unknown plan type: " + planType);
         }
     }
 
+    // ── Upgrade / create subscription for a plan ─────────────────────────────
+
     public Subscription UpgradeSubscriptionForPlan(Company company, PlanType selectedPlan) {
+
         Subscription subscription = subscriptionRepository
                 .findByCompany(company)
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+                .orElse(null);
+
         if (subscription == null) {
             Subscription newSub = new Subscription();
             newSub.setCompany(company);
             newSub.setPlanType(selectedPlan);
-            newSub.setStatus(SubscriptionStatus.ACTIVE);  // Waiting for payment
+            newSub.setStatus(SubscriptionStatus.ACTIVE);
             newSub.setStartDate(LocalDateTime.now());
-            newSub.setEndDate(LocalDateTime.now().plusDays(selectedPlan.getDurationInDays()));  // Duration
+            newSub.setEndDate(LocalDateTime.now().plusDays(selectedPlan.getDurationInDays()));
             newSub.setIncludedUsers(selectedPlan.getIncludedUsers());
             newSub.setActiveUsersSnapshot(1);
             return subscriptionRepository.save(newSub);
         }
-        else {
 
-            subscription.setPlanType(selectedPlan);
-            subscription.setStatus(SubscriptionStatus.ACTIVE);  // Waiting for payment
-            subscription.setStartDate(LocalDateTime.now());
-            subscription.setEndDate(LocalDateTime.now().plusDays(selectedPlan.getDurationInDays()));  // Duration
-            subscription.setIncludedUsers(selectedPlan.getIncludedUsers());
-            subscription.setActiveUsersSnapshot(1);// always one since the owner is an active user in the instance //TO DO : remember to increment this value after each invitation accepted
+        subscription.setPlanType(selectedPlan);
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.setStartDate(LocalDateTime.now());
+        subscription.setEndDate(LocalDateTime.now().plusDays(selectedPlan.getDurationInDays()));
+        subscription.setIncludedUsers(selectedPlan.getIncludedUsers());
+        subscription.setActiveUsersSnapshot(1);
+        return subscriptionRepository.save(subscription);
+    }
 
-            return subscriptionRepository.save(subscription);
+    // ── Active-users counter ─────────────────────────────────────────────────
+
+    public void activeUsersSnapshotCounter(String companyName) {
+
+        Company company = companyRepository.findByName(companyName);
+        if (company == null) {
+            throw new ResourceNotFoundException(
+                    SubscriptionErrorCodes.COMPANY_NOT_FOUND,
+                    "No company found with name: " + companyName);
         }
+
+        Subscription subscription = subscriptionRepository
+                .findByCompany(company)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        SubscriptionErrorCodes.SUBSCRIPTION_NOT_FOUND,
+                        "No subscription found for company: " + companyName));
+
+        subscription.setActiveUsersSnapshot(subscription.getActiveUsersSnapshot() + 1);
+        subscriptionRepository.save(subscription);
     }
-
-    public void activeUsersSnapshotCounter(String company) {
-
-        Company cp = companyRepository.findByName(company);
-
-        Subscription sub = subscriptionRepository.findByCompany(cp).orElseThrow();
-
-        sub.setActiveUsersSnapshot(sub.getActiveUsersSnapshot() + 1);
-        System.out.println("counter incremented, new number of users is : " + sub.getActiveUsersSnapshot());
-    }
-
 }

@@ -134,7 +134,7 @@ public class InvitationService {
 
             if (exitCode != 0) {
                 throw new ExternalServiceException("ODOO_STAFF_CREATION_FAILED",
-                        "Failed to create staff user in Odoo (exit code " + exitCode + ")", null);
+                        "Failed to create staff user in Odoo (exit code " + exitCode + ")",null);
             }
         } catch (IOException e) {
             throw new ExternalServiceException("ODOO_STAFF_CREATION_FAILED",

@@ -5,16 +5,18 @@ import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.entities.user.UserRole;
 import ma.expertsci.account.repository.UserRepository;
-import ma.expertsci.instances.dto.CreatedInstanceRequestDTO;
+import ma.expertsci.exception.ExternalServiceException;
+import ma.expertsci.exception.ForbiddenActionException;
+import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.instances.dto.DockerResultDTO;
 import ma.expertsci.instances.dto.InstanceResponseDTO;
 import ma.expertsci.instances.entities.Instance;
 import ma.expertsci.instances.entities.InstanceStatus;
+import ma.expertsci.instances.exception.InstanceErrorCodes;
 import ma.expertsci.instances.repository.InstanceRepository;
-import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -24,20 +26,22 @@ public class InstanceService {
     private final UserRepository userRepository;
     private final DockerService dockerService;
 
+    // ── Create instance ──────────────────────────────────────────────────────
+
     public InstanceResponseDTO createInstance(String email) {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow();
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        InstanceErrorCodes.USER_NOT_FOUND,
+                        "No user found with email: " + email));
 
         Company company = user.getCompany();
-
         String instanceName = company.getName();
 
         Instance instance = new Instance();
         instance.setName(instanceName);
         instance.setCompany(company);
         instance.setStatus(InstanceStatus.CREATING);
-
         instanceRepository.save(instance);
 
         try {
@@ -48,15 +52,150 @@ public class InstanceService {
             instance.setUrl(result.getUrl());
             instance.setStatus(InstanceStatus.RUNNING);
 
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (ExternalServiceException e) {
+            // Already typed — just propagate after recording the error status
             instance.setStatus(InstanceStatus.ERROR);
+            instanceRepository.save(instance);
+            throw e;
+        } catch (Exception e) {
+            instance.setStatus(InstanceStatus.ERROR);
+            instanceRepository.save(instance);
+            throw new ExternalServiceException(
+                    InstanceErrorCodes.DOCKER_START_FAILED,
+                    "Failed to start Docker instance '" + instanceName + "'.",
+                    e);
         }
 
         instanceRepository.save(instance);
+        return mapToResponse(instance);
+    }
+
+    // ── Retrieve a single instance (with ownership check) ───────────────────
+
+    public Instance getInstanceForUser(String email, Long instanceId) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        InstanceErrorCodes.USER_NOT_FOUND,
+                        "No user found with email: " + email));
+
+        Instance instance = instanceRepository.findById(instanceId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        InstanceErrorCodes.INSTANCE_NOT_FOUND,
+                        "No instance found with id: " + instanceId));
+
+        if (user.getRole() == UserRole.ADMIN) {
+            return instance;
+        }
+
+        if (!instance.getCompany().getId().equals(user.getCompany().getId())) {
+            throw new ForbiddenActionException(
+                    InstanceErrorCodes.INSTANCE_ACCESS_DENIED,
+                    "You are not allowed to access instance with id: " + instanceId);
+        }
+
+        return instance;
+    }
+
+    // ── Retrieve the instance that belongs to the user's own company ─────────
+
+    public InstanceResponseDTO getUserInstanceOnly(String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        InstanceErrorCodes.USER_NOT_FOUND,
+                        "No user found with email: " + email));
+
+        Instance instance = instanceRepository.findByName(user.getCompany().getName())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        InstanceErrorCodes.INSTANCE_NOT_FOUND,
+                        "No instance found for company: " + user.getCompany().getName()));
+
+        if (!instance.getCompany().getId().equals(user.getCompany().getId())) {
+            throw new ForbiddenActionException(
+                    InstanceErrorCodes.INSTANCE_ACCESS_DENIED,
+                    "You are not allowed to access this instance.");
+        }
 
         return mapToResponse(instance);
     }
+
+    // ── Lifecycle operations ─────────────────────────────────────────────────
+
+    public void startInstance(String email, Long instanceId) {
+
+        Instance instance = getInstanceForUser(email, instanceId);
+
+        try {
+            dockerService.startInstanceContainer(instance.getName());
+        } catch (Exception e) {
+            throw new ExternalServiceException(
+                    InstanceErrorCodes.DOCKER_START_FAILED,
+                    "Failed to start container for instance '" + instance.getName() + "'.",
+                    e);
+        }
+
+        instance.setStatus(InstanceStatus.RUNNING);
+        instanceRepository.save(instance);
+    }
+
+    public void stopInstance(String email, Long instanceId) {
+
+        Instance instance = getInstanceForUser(email, instanceId);
+
+        try {
+            dockerService.stopInstanceContainer(instance.getName());
+        } catch (Exception e) {
+            throw new ExternalServiceException(
+                    InstanceErrorCodes.DOCKER_STOP_FAILED,
+                    "Failed to stop container for instance '" + instance.getName() + "'.",
+                    e);
+        }
+
+        instance.setStatus(InstanceStatus.STOPPED);
+        instanceRepository.save(instance);
+    }
+
+    public void restartInstance(String email, Long instanceId) {
+
+        Instance instance = getInstanceForUser(email, instanceId);
+
+        try {
+            dockerService.restartInstance(instance.getName());
+        } catch (Exception e) {
+            throw new ExternalServiceException(
+                    InstanceErrorCodes.DOCKER_RESTART_FAILED,
+                    "Failed to restart container for instance '" + instance.getName() + "'.",
+                    e);
+        }
+
+        instance.setStatus(InstanceStatus.RUNNING);
+        instanceRepository.save(instance);
+    }
+
+    // ── Admin: list all instances ────────────────────────────────────────────
+
+    public Page<InstanceResponseDTO> getInstances(String email, Pageable pageable) {
+
+        userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        InstanceErrorCodes.USER_NOT_FOUND,
+                        "No user found with email: " + email));
+
+        Page<Instance> instancesPage = instanceRepository.findAll(pageable);
+
+        return instancesPage.map(instance -> InstanceResponseDTO.builder()
+                .id(instance.getId())
+                .region(instance.getCompany().getCountry())
+                .userEmail(instance.getCompany().getUsers().get(0).getEmail())
+                .nameInstance(instance.getName())
+                .status(instance.getStatus())
+                .firstName(instance.getCompany().getUsers().get(0).getFirstName())
+                .lastName(instance.getCompany().getUsers().get(0).getLastName())
+                .build());
+    }
+
+    // ── Private helpers ──────────────────────────────────────────────────────
 
     private InstanceResponseDTO mapToResponse(Instance instance) {
         return InstanceResponseDTO.builder()
@@ -69,85 +208,5 @@ public class InstanceService {
                 .lastName(instance.getCompany().getUsers().get(0).getLastName())
                 .status(instance.getStatus())
                 .build();
-    }
-
-    public Instance getInstanceForUser(String email, Long instanceId) {
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow();
-
-        Instance instance = instanceRepository.findById(instanceId)
-                .orElseThrow();
-
-        if (user.getRole() == UserRole.ADMIN) {
-            return instance;
-        }
-        if (!instance.getCompany().getId().equals(user.getCompany().getId())) {
-            throw new RuntimeException("Unauthorized access to instance");
-        }
-
-        return instance;
-    }
-
-    public InstanceResponseDTO getUserInstanceOnly(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow();
-
-        Instance instance = instanceRepository.findByName(user.getCompany().getName())
-                .orElseThrow();
-
-        if (!instance.getCompany().getId().equals(user.getCompany().getId())) {
-            throw new RuntimeException("Unauthorized access to instance");
-        }
-
-        return mapToResponse(instance);
-
-
-    }
-
-    public void startInstance(String email, Long instanceId) throws Exception {
-
-        Instance instance = getInstanceForUser(email, instanceId);
-
-        dockerService.startInstanceContainer(instance.getName());
-
-        instance.setStatus(InstanceStatus.RUNNING);
-        instanceRepository.save(instance);
-    }
-    public void stopInstance(String email, Long instanceId) throws Exception {
-
-        Instance instance = getInstanceForUser(email, instanceId);
-
-        dockerService.stopInstanceContainer(instance.getName());
-
-        instance.setStatus(InstanceStatus.STOPPED);
-        instanceRepository.save(instance);
-    }
-    public void restartInstance(String email, Long instanceId) throws Exception {
-
-        Instance instance = getInstanceForUser(email, instanceId);
-
-        dockerService.restartInstance(instance.getName());
-
-        instance.setStatus(InstanceStatus.RUNNING);
-        instanceRepository.save(instance);
-    }
-    public Page<InstanceResponseDTO> getInstances(String email, Pageable pageable) {
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow();
-
-        Page<Instance> instancesPage = instanceRepository.findAll(pageable);
-
-        return instancesPage.map(instance -> InstanceResponseDTO.builder()
-                .id(instance.getId())
-                .region(instance.getCompany().getCountry())
-                .userEmail(instance.getCompany().getUsers().get(0).getEmail())
-                .nameInstance(instance.getName())
-                .status(instance.getStatus())
-                .firstName(instance.getCompany().getUsers().get(0).getFirstName())
-                .lastName(instance.getCompany().getUsers().get(0).getLastName())
-                .build()
-        );
     }
 }

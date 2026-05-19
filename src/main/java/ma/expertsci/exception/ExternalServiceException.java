@@ -1,5 +1,6 @@
 package ma.expertsci.exception;
 
+import ma.expertsci.instances.exception.InstanceErrorCodes;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -19,4 +20,5 @@ public class ExternalServiceException extends BaseException {
     public ExternalServiceException(String errorCode, String message, Throwable cause) {
         super(HttpStatus.BAD_GATEWAY, errorCode, message, cause);
     }
+
 }
