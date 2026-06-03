@@ -12,7 +12,6 @@ import ma.expertsci.instances.services.DockerService;
 import ma.expertsci.instances.services.InstanceService;
 import ma.expertsci.security.JwtService;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -20,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/instances")
@@ -31,16 +31,29 @@ public class InstanceController {
     private final UserService userService;
     private final DockerService dockerService;
 
+    // ── Create instance ──────────────────────────────────────────────────────
+
+    /**
+     * POST /api/instances/create
+     *
+     * Body: { "name": "acme-prod", "modules": ["sale", "purchase", "inventory"] }
+     *
+     * The authenticated user must have ROLE_OWNER.
+     * "base" and "saas_sso" are always enforced server-side regardless of the
+     * module list supplied here.
+     */
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/create")
     public ResponseEntity<InstanceResponseDTO> create(
-            Authentication auth
-//            @RequestBody CreatedInstanceRequestDTO request
+            Authentication auth,
+            @Valid @RequestBody CreatedInstanceRequestDTO request
     ) {
         return ResponseEntity.ok(
-                instanceService.createInstance(auth.getName())
+                instanceService.createInstance(auth.getName(), request)
         );
     }
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
 
     @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     @PostMapping("/{id}/start")
@@ -70,6 +83,8 @@ public class InstanceController {
 //        return ResponseEntity.ok("Instance deleted");
 //    }
 
+    // ── User-facing queries ──────────────────────────────────────────────────
+
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
     @GetMapping("userInstance")
     public ResponseEntity<InstanceResponseDTO> getUserInstanceOnly(Authentication auth) throws Exception {
@@ -82,15 +97,13 @@ public class InstanceController {
             Authentication auth,
             @PathVariable Long id
     ) {
-
         Instance instance = instanceService.getInstanceForUser(auth.getName(), id);
 
-        //Extract user role from Spring Security
         String role = auth.getAuthorities()
                 .stream()
                 .findFirst()
-                .map(grantedAuthority -> grantedAuthority.getAuthority().replace("ROLE_", ""))
-                .orElse("STAFF"); // fallback safety
+                .map(ga -> ga.getAuthority().replace("ROLE_", ""))
+                .orElse("STAFF");
 
         String token = jwtService.generateOdooToken(
                 auth.getName(),
@@ -98,12 +111,11 @@ public class InstanceController {
                 instance.getName()
         );
 
-//        String url = instance.getUrl() + "/saas-login?db=" + instance.getName() + "_db&token=" + token;
         String url = instance.getUrl() + "/saas-login?token=" + token;
-
-        AccessURLDTO accessURLDTO = new AccessURLDTO(url);
-        return ResponseEntity.ok(accessURLDTO);
+        return ResponseEntity.ok(new AccessURLDTO(url));
     }
+
+    // ── Admin ────────────────────────────────────────────────────────────────
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/allInstances")
@@ -112,26 +124,22 @@ public class InstanceController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        size = Math.min(size, 50); // max 50
-
+        size = Math.min(size, 50);
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(
-                instanceService.getInstances(auth.getName(), pageable)
-        );
+        return ResponseEntity.ok(instanceService.getInstances(auth.getName(), pageable));
     }
 
-    // Endpoint to trigger Nginx config generation
+    // ── Nginx utilities ──────────────────────────────────────────────────────
+
     @GetMapping("/generate-nginx-config/{instanceName}")
     public String generateNginxConfig(@PathVariable String instanceName) {
         try {
-            dockerService.generateNginxConfig(instanceName); // Call the service method to generate the config
-            // After generating the Nginx config
-            dockerService.updateHostsFile(instanceName); // Update hosts file with the new domain
+            dockerService.generateNginxConfig(instanceName);
+            dockerService.updateHostsFile(instanceName);
             dockerService.reloadNginx();
             return "Nginx config generated for instance: " + instanceName;
         } catch (Exception e) {
             return "Error generating Nginx config: " + e.getMessage();
         }
     }
-
 }

@@ -4,6 +4,8 @@ import lombok.Builder;
 import lombok.Data;
 import ma.expertsci.instances.entities.InstanceStatus;
 
+import java.util.List;
+
 @Builder
 @Data
 public class InstanceResponseDTO {
@@ -15,4 +17,5 @@ public class InstanceResponseDTO {
     private String userEmail;
     private String firstName;
     private String lastName;
+    private List<String> modules;
 }

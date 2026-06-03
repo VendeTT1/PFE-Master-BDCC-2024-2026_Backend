@@ -1,5 +1,7 @@
 package ma.expertsci.instances.dto;
 
-public record CreatedInstanceRequestDTO(String name)  {
+import java.util.List;
+
+public record CreatedInstanceRequestDTO(String name, List<String> modules)  {
 
 }

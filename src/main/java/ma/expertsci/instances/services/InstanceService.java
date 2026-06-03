@@ -8,6 +8,7 @@ import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.exception.ExternalServiceException;
 import ma.expertsci.exception.ForbiddenActionException;
 import ma.expertsci.exception.ResourceNotFoundException;
+import ma.expertsci.instances.dto.CreatedInstanceRequestDTO;
 import ma.expertsci.instances.dto.DockerResultDTO;
 import ma.expertsci.instances.dto.InstanceResponseDTO;
 import ma.expertsci.instances.entities.Instance;
@@ -18,17 +19,32 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 public class InstanceService {
 
     private final InstanceRepository instanceRepository;
     private final UserRepository userRepository;
     private final DockerService dockerService;
 
+
+    public InstanceService(InstanceRepository instanceRepository, UserRepository userRepository, DockerService dockerService) {
+        this.instanceRepository = instanceRepository;
+        this.userRepository = userRepository;
+        this.dockerService = dockerService;
+    }
     // ── Create instance ──────────────────────────────────────────────────────
 
-    public InstanceResponseDTO createInstance(String email) {
+    /**
+     * Creates a new Odoo instance for the authenticated user's company.
+     *
+     * @param email   Email of the authenticated OWNER.
+     * @param request DTO containing the instance name and the list of module
+     *                keys selected by the user on the frontend.
+     */
+    public InstanceResponseDTO createInstance(String email, CreatedInstanceRequestDTO request) {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -41,11 +57,13 @@ public class InstanceService {
         Instance instance = new Instance();
         instance.setName(instanceName);
         instance.setCompany(company);
+        instance.setModules(request.modules());   // persist selected modules
         instance.setStatus(InstanceStatus.CREATING);
         instanceRepository.save(instance);
 
         try {
-            DockerResultDTO result = dockerService.startInstance(instanceName);
+            // Pass the user-selected module list down to the Docker layer
+            DockerResultDTO result = dockerService.startInstance(instanceName, request.modules());
 
             instance.setDockerContainerId(result.getAppContainerId());
             instance.setDbContainerId(result.getDbContainerId());
@@ -53,7 +71,6 @@ public class InstanceService {
             instance.setStatus(InstanceStatus.RUNNING);
 
         } catch (ExternalServiceException e) {
-            // Already typed — just propagate after recording the error status
             instance.setStatus(InstanceStatus.ERROR);
             instanceRepository.save(instance);
             throw e;
@@ -182,9 +199,7 @@ public class InstanceService {
                         InstanceErrorCodes.USER_NOT_FOUND,
                         "No user found with email: " + email));
 
-        Page<Instance> instancesPage = instanceRepository.findAll(pageable);
-
-        return instancesPage.map(instance -> InstanceResponseDTO.builder()
+        return instanceRepository.findAll(pageable).map(instance -> InstanceResponseDTO.builder()
                 .id(instance.getId())
                 .region(instance.getCompany().getCountry())
                 .userEmail(instance.getCompany().getUsers().get(0).getEmail())
@@ -192,6 +207,7 @@ public class InstanceService {
                 .status(instance.getStatus())
                 .firstName(instance.getCompany().getUsers().get(0).getFirstName())
                 .lastName(instance.getCompany().getUsers().get(0).getLastName())
+                .modules(instance.getModules())
                 .build());
     }
 
@@ -207,6 +223,7 @@ public class InstanceService {
                 .firstName(instance.getCompany().getUsers().get(0).getFirstName())
                 .lastName(instance.getCompany().getUsers().get(0).getLastName())
                 .status(instance.getStatus())
+                .modules(instance.getModules())   // include installed modules in every response
                 .build();
     }
 }

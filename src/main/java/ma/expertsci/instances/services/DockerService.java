@@ -15,6 +15,8 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 @Service
@@ -35,7 +37,14 @@ public class DockerService {
 
     // ── Create and boot a brand-new instance ────────────────────────────────
 
-    public DockerResultDTO startInstance(String instanceName) {
+    /**
+     * @param instanceName  Unique name derived from the company name.
+     * @param modules       Module keys selected by the user on the frontend
+     *                      (e.g. ["sale", "purchase", "inventory"]).
+     *                      "base" and "saas_sso" are always enforced by
+     *                      {@link #buildModuleList(List)}.
+     */
+    public DockerResultDTO startInstance(String instanceName, List<String> modules) {
 
         // ── 1. Early validation ─────────────────────────────
         if (instanceName == null || instanceName.isBlank()) {
@@ -47,7 +56,7 @@ public class DockerService {
         }
 
         // ── 2. Check if instance already exists for this company ──
-        boolean exists = subscriptionRepository.findByCompany(companyRepository.findByName(instanceName)).isPresent(); // implement in repository
+        boolean exists = subscriptionRepository.findByCompany(companyRepository.findByName(instanceName)).isPresent();
         if (exists) {
             throw new ExternalServiceException(
                     InstanceErrorCodes.DOCKER_ERROR,
@@ -58,8 +67,8 @@ public class DockerService {
 
         try {
             // ── 3. Prepare instance parameters ───────────────
-            String dbName       = instanceName + "_db";
-            String dbPassword   = "123456";
+            String dbName        = instanceName + "_db";
+            String dbPassword    = "123456";
             String adminPassword = "1234567";
             int port = generatePort();
 
@@ -87,9 +96,9 @@ public class DockerService {
                     .replace("${DB_NAME}", dbName)
                     .replace("${DB_PASSWORD}", dbPassword);
 
-            String dockerFileTemplate    = Files.readString(Paths.get(TEMPLATE_PATH + "Dockerfile.tpl"));
-            String pythonFileTemplate    = Files.readString(Paths.get(TEMPLATE_PATH + "script.py.tpl"));
-            String createStaffUserFile   = Files.readString(Paths.get(TEMPLATE_PATH + "create_staff_user.py.tpl"));
+            String dockerFileTemplate  = Files.readString(Paths.get(TEMPLATE_PATH + "Dockerfile.tpl"));
+            String pythonFileTemplate  = Files.readString(Paths.get(TEMPLATE_PATH + "script.py.tpl"));
+            String createStaffUserFile = Files.readString(Paths.get(TEMPLATE_PATH + "create_staff_user.py.tpl"));
 
             Files.writeString(instanceDir.resolve("docker-compose.yml"), compose);
             Files.writeString(instanceDir.resolve("odoo.conf"), odooConf);
@@ -99,10 +108,10 @@ public class DockerService {
 
             // ── 5. Start Docker container ─────────────────────
             runProcess(instanceDir, "docker-compose", "up", "-d");
-            Thread.sleep(30_000); // wait for container
+            Thread.sleep(30_000);
 
-            // ── 6. Initialize Odoo instance ──────────────────
-            initializeOdooInstance(instanceDir, dbName, instanceName);
+            // ── 6. Initialize Odoo with the user-selected modules ──
+            initializeOdooInstance(instanceDir, dbName, instanceName, modules);
             Thread.sleep(30_000);
 
             runPythonScript(instanceName);
@@ -115,7 +124,7 @@ public class DockerService {
             return new DockerResultDTO(instanceName + "_app", instanceName + "_db", url);
 
         } catch (ResourceNotFoundException | ExternalServiceException e) {
-            throw e; // propagate
+            throw e;
         } catch (Exception e) {
             throw new ExternalServiceException(
                     InstanceErrorCodes.DOCKER_ERROR,
@@ -124,6 +133,7 @@ public class DockerService {
             );
         }
     }
+
     // ── Start an existing instance container ─────────────────────────────────
 
     public void startInstanceContainer(String instanceName) {
@@ -248,7 +258,41 @@ public class DockerService {
 
     // ── Private helpers ──────────────────────────────────────────────────────
 
-    private void initializeOdooInstance(Path instanceDir, String dbName, String instanceName) {
+    /**
+     * Builds the comma-separated module string to pass to {@code odoo -i}.
+     * Rules:
+     * <ul>
+     *   <li>"base" is always the first entry.</li>
+     *   <li>Any non-blank, non-duplicate key from {@code requestedModules} is appended.</li>
+     *   <li>"saas_sso" is always appended last if it was not already present.</li>
+     * </ul>
+     */
+    private String buildModuleList(List<String> requestedModules) {
+        List<String> modules = new ArrayList<>();
+        modules.add("base");
+
+        if (requestedModules != null) {
+            requestedModules.stream()
+                    .filter(m -> m != null && !m.isBlank() && !m.equals("base"))
+                    .forEach(modules::add);
+        }
+
+        if (!modules.contains("saas_sso")) {
+            modules.add("saas_sso");
+        }
+
+        return String.join(",", modules);
+    }
+
+    /**
+     * Runs {@code odoo --stop-after-init} inside the compose stack to seed the
+     * database with the selected modules.
+     */
+    private void initializeOdooInstance(Path instanceDir,
+                                        String dbName,
+                                        String instanceName,
+                                        List<String> modules) {
+        String moduleList = buildModuleList(modules);
 
         try {
             ProcessBuilder pb = new ProcessBuilder(
@@ -257,7 +301,7 @@ public class DockerService {
                     "odoo",
                     "-c", "/etc/odoo/odoo.conf",
                     "-d", dbName,
-                    "-i", "base,sale,purchase,inventory,point_of_sale,saas_sso",
+                    "-i", moduleList,
                     "--without-demo=all",
                     "--stop-after-init");
 
@@ -269,7 +313,7 @@ public class DockerService {
                 throw new ExternalServiceException(
                         InstanceErrorCodes.ODOO_INIT_FAILED,
                         "Odoo initialization failed for instance '" + instanceName
-                                + "' (exit code " + exitCode + ").",null);
+                                + "' (exit code " + exitCode + ").", null);
             }
         } catch (ExternalServiceException e) {
             throw e;
@@ -283,8 +327,7 @@ public class DockerService {
 
     /**
      * Convenience wrapper: builds a {@link ProcessBuilder}, runs it in the given
-     * directory, and waits for it to finish. Throws an unchecked exception on
-     * any {@link InterruptedException} or {@link IOException}.
+     * directory, and waits for it to finish.
      */
     private void runProcess(Path workingDir, String... command) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(command);

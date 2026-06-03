@@ -5,6 +5,7 @@ import lombok.Data;
 import ma.expertsci.account.entities.company.Company;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "instances")
@@ -32,4 +33,12 @@ public class Instance {
     private Company company;
 
     private LocalDateTime createdAt;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "instance_modules",
+            joinColumns = @JoinColumn(name = "instance_id")
+    )
+    @Column(name = "module")
+    private List<String> modules;
 }
