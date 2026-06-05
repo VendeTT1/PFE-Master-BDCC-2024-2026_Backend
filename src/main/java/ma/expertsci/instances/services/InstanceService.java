@@ -72,11 +72,13 @@ public class InstanceService {
 
         } catch (ExternalServiceException e) {
             instance.setStatus(InstanceStatus.ERROR);
-            instanceRepository.save(instance);
+            e.printStackTrace();
+//            instanceRepository.save(instance);
             throw e;
         } catch (Exception e) {
             instance.setStatus(InstanceStatus.ERROR);
-            instanceRepository.save(instance);
+            e.printStackTrace();
+//            instanceRepository.save(instance);
             throw new ExternalServiceException(
                     InstanceErrorCodes.DOCKER_START_FAILED,
                     "Failed to start Docker instance '" + instanceName + "'.",

@@ -8,6 +8,7 @@ import ma.expertsci.exception.ExternalServiceException;
 import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.instances.dto.DockerResultDTO;
 import ma.expertsci.instances.exception.InstanceErrorCodes;
+import ma.expertsci.instances.repository.InstanceRepository;
 import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import org.springframework.stereotype.Service;
 
@@ -28,11 +29,13 @@ public class DockerService {
     private final UserRepository userRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final CompanyRepository companyRepository;
+    private final InstanceRepository instanceRepository;
 
-    public DockerService(UserRepository userRepository, SubscriptionRepository subscriptionRepository, CompanyRepository companyRepository) {
+    public DockerService(UserRepository userRepository, SubscriptionRepository subscriptionRepository, CompanyRepository companyRepository, InstanceRepository instanceRepository) {
         this.userRepository = userRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.companyRepository = companyRepository;
+        this.instanceRepository = instanceRepository;
     }
 
     // ── Create and boot a brand-new instance ────────────────────────────────
@@ -56,7 +59,7 @@ public class DockerService {
         }
 
         // ── 2. Check if instance already exists for this company ──
-        boolean exists = subscriptionRepository.findByCompany(companyRepository.findByName(instanceName)).isPresent();
+        boolean exists = instanceRepository.findByCompany(companyRepository.findByName(instanceName)).isEmpty();
         if (exists) {
             throw new ExternalServiceException(
                     InstanceErrorCodes.DOCKER_ERROR,

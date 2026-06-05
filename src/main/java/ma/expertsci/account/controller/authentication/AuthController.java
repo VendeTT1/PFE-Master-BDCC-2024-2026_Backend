@@ -41,7 +41,6 @@ public class AuthController {
     private final PasswordResetService passwordResetService;
     private final AuthService authService;
 
-
     @PostMapping("/register")
     public ResponseEntity<RegisterResponseDTO> register(
             @Valid @RequestBody RegisterRequestDTO request

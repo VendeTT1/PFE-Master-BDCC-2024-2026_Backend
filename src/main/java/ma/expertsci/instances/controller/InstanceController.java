@@ -55,21 +55,24 @@ public class InstanceController {
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+//    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/start")
     public ResponseEntity<InstanceStatus> start(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.startInstance(auth.getName(), id);
         return ResponseEntity.ok(InstanceStatus.RUNNING);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
+//    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/stop")
     public ResponseEntity<InstanceStatus> stop(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.stopInstance(auth.getName(), id);
         return ResponseEntity.ok(InstanceStatus.STOPPED);
     }
 
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+//    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/restart")
     public ResponseEntity<InstanceStatus> restart(Authentication auth, @PathVariable Long id) throws Exception {
         instanceService.restartInstance(auth.getName(), id);

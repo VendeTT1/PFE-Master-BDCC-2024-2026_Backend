@@ -41,8 +41,8 @@ public class SubscriptionService {
         subscription.setPlanType(PlanType.TRIAL);
         subscription.setStatus(SubscriptionStatus.ACTIVE);
         subscription.setStartDate(LocalDateTime.now());
-        subscription.setEndDate(LocalDateTime.now().plusMinutes(5)); // trial expires in 5 minutes for testing
-        subscription.setIncludedUsers(5);
+        subscription.setEndDate(LocalDateTime.now().plusDays(PlanType.TRIAL.getDurationInDays()));
+        subscription.setIncludedUsers(PlanType.TRIAL.getIncludedUsers());
         subscription.setExtraUsers(0);
         subscription.setActiveUsersSnapshot(1);
 
@@ -67,25 +67,21 @@ public class SubscriptionService {
                     "Subscription for company '" + company.getName() + "' is currently suspended.");
         }
 
-        // If marked EXPIRED but end-date is still in the future, reactivate
-        if (subscription.getStatus() == SubscriptionStatus.EXPIRED) {
-            if (subscription.getEndDate().isAfter(now)) {
-                subscription.setStatus(SubscriptionStatus.ACTIVE);
-                subscriptionRepository.save(subscription);
-            } else {
-                throw new BusinessRuleViolationException(
-                        SubscriptionErrorCodes.SUBSCRIPTION_EXPIRED,
-                        "Subscription for company '" + company.getName() + "' has expired.");
-            }
-        }
-
-        // Detect expiry on a still-ACTIVE subscription
+        // Detect expiry first — covers both ACTIVE and EXPIRED status
         if (subscription.getEndDate() != null && subscription.getEndDate().isBefore(now)) {
-            subscription.setStatus(SubscriptionStatus.EXPIRED);
-            subscriptionRepository.save(subscription);
+            if (subscription.getStatus() != SubscriptionStatus.EXPIRED) {
+                subscription.setStatus(SubscriptionStatus.EXPIRED);
+                subscriptionRepository.save(subscription);
+            }
             throw new BusinessRuleViolationException(
                     SubscriptionErrorCodes.SUBSCRIPTION_EXPIRED,
                     "Subscription for company '" + company.getName() + "' has expired.");
+        }
+
+        // If it was EXPIRED but end-date is now in the future (e.g. after an upgrade), reactivate
+        if (subscription.getStatus() == SubscriptionStatus.EXPIRED) {
+            subscription.setStatus(SubscriptionStatus.ACTIVE);
+            subscriptionRepository.save(subscription);
         }
 
         if (subscription.getStatus() != SubscriptionStatus.ACTIVE) {
@@ -134,9 +130,7 @@ public class SubscriptionService {
 
     public Page<SubscriptionResponseDTO> getAllSubscriptionsForAdmin(Pageable pageable) {
 
-        Page<Subscription> subscriptionsPage = subscriptionRepository.findAll(pageable);
-
-        return subscriptionsPage.map(subscription -> {
+        return subscriptionRepository.findAll(pageable).map(subscription -> {
 
             User user = subscription.getCompany().getUsers().stream()
                     .findFirst()
@@ -180,6 +174,10 @@ public class SubscriptionService {
 
     // ── Upgrade / create subscription for a plan ─────────────────────────────
 
+    /**
+     * Called by WebhookHandler after a successful payment verification.
+     * BUG FIX: preserves the real activeUsersSnapshot on upgrade instead of resetting to 1.
+     */
     public Subscription UpgradeSubscriptionForPlan(Company company, PlanType selectedPlan) {
 
         Subscription subscription = subscriptionRepository
@@ -198,12 +196,15 @@ public class SubscriptionService {
             return subscriptionRepository.save(newSub);
         }
 
+        // Preserve the real active user count — don't reset to 1 on upgrade
+        int currentActiveUsers = subscription.getActiveUsersSnapshot();
+
         subscription.setPlanType(selectedPlan);
         subscription.setStatus(SubscriptionStatus.ACTIVE);
         subscription.setStartDate(LocalDateTime.now());
         subscription.setEndDate(LocalDateTime.now().plusDays(selectedPlan.getDurationInDays()));
         subscription.setIncludedUsers(selectedPlan.getIncludedUsers());
-        subscription.setActiveUsersSnapshot(1);
+        subscription.setActiveUsersSnapshot(currentActiveUsers);  // preserve real count
         return subscriptionRepository.save(subscription);
     }
 

@@ -42,6 +42,7 @@ public class SecurityConfig {
                         .hasRole("OWNER")
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/webhook/cinetpay").permitAll()
                         // Public endpoints
                         .requestMatchers("/api/auth/**",
                                 "/api/instances/generate-nginx-config/**",
