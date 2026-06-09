@@ -8,14 +8,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "cinetpay")
 public class CinetPayConfig {
-
-    private String apiPassword;
     private String apiKey;
-    private String siteId;
+    private String apiPassword;
+    private String country;
+    private String baseUrl;
     private String notifyUrl;
     private String returnUrl;
-    private String paymentUrl;
-    private String verifyUrl;
+    private String successUrl;
+    private String failedUrl;
     private String currency;
     private String channels;
     private String lang;

@@ -14,9 +14,6 @@ import ma.expertsci.billing.repository.PaymentTransactionRepository;
 import ma.expertsci.exception.BusinessRuleViolationException;
 import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.subscriptions.entities.PlanType;
-import ma.expertsci.subscriptions.entities.SubscriptionStatus;
-import ma.expertsci.subscriptions.exception.SubscriptionErrorCodes;
-import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import ma.expertsci.subscriptions.service.SubscriptionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -37,25 +34,14 @@ public class BillingService {
     private final CinetPayConfig cinetPayConfig;
     private final PaymentTransactionRepository transactionRepository;
     private final UserRepository userRepository;
-    private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionService subscriptionService;
 
     // ── Initiate a payment ────────────────────────────────────────────────────
 
-    /**
-     * Called by POST /api/billing/initiate (authenticated).
-     *
-     * Flow:
-     * 1. Resolve the authenticated user and their company
-     * 2. Validate the requested plan (must be paid, must not already be on same/higher plan)
-     * 3. Generate a unique transactionId and persist a PENDING record
-     * 4. Call CinetPay /v2/payment to get a payment_token
-     * 5. Update the record with the token and return it to the frontend
-     */
     @Transactional
     public InitiatePaymentResponseDTO initiatePayment(InitiatePaymentRequestDTO request) {
 
-        // 1. Resolve caller
+        // 1. Resolve authenticated caller
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -66,19 +52,18 @@ public class BillingService {
                     "COMPANY_NOT_FOUND", "User is not associated with any company.");
         }
 
-        // 2. Validate plan
+        // 2. Validate plan — only paid plans go through the payment flow
         PlanType selectedPlan = request.getPlanType();
-
         if (!selectedPlan.isPaid()) {
             throw new BusinessRuleViolationException(
                     "INVALID_PLAN", "Cannot initiate payment for a free plan: " + selectedPlan.name());
         }
 
-        // 3. Build unique transaction ID (UUIDs are safe — no special chars except hyphens, stripped below)
-        String transactionId = "TXN-" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
+        // 3. Generate unique transaction ID — no special chars per CinetPay requirement
+        String transactionId = "TXN" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
 
         // 4. Persist PENDING record before calling CinetPay
-        //    If CinetPay call fails, we still have a record for audit
+        //    Ensures we have an audit trail even if the CinetPay call fails
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .transactionId(transactionId)
                 .company(user.getCompany())
@@ -87,56 +72,56 @@ public class BillingService {
                 .currency(cinetPayConfig.getCurrency())
                 .status(PaymentStatus.PENDING)
                 .build();
-
         transaction = transactionRepository.save(transaction);
 
-        // 5. Build and fire CinetPay initiation request
+        // 5. Build the v1/payment request body
+        //    Note: no api_key or api_password here — auth is via Bearer token in the header,
+        //    handled transparently by CinetPayClient → CinetPayTokenService
         CinetPayInitRequest cinetPayRequest = CinetPayInitRequest.builder()
-                .apikey(cinetPayConfig.getApiKey())
-                .siteId(cinetPayConfig.getSiteId())
-                .transactionId(transactionId)
-                .amount(selectedPlan.getPriceXOF())
                 .currency(cinetPayConfig.getCurrency())
-                .description(buildDescription(selectedPlan))
+                .merchantTransactionId(transactionId)
+                .amount(selectedPlan.getPriceXOF())
+                .designation("Subscription to " + selectedPlan.name() + " plan - ExpertSci")
+                .lang(cinetPayConfig.getLang())
+                .channel(cinetPayConfig.getChannels())
                 .notifyUrl(cinetPayConfig.getNotifyUrl())
                 .returnUrl(cinetPayConfig.getReturnUrl())
-                .channels(cinetPayConfig.getChannels())
-                .lang(cinetPayConfig.getLang())
+                .successUrl(cinetPayConfig.getSuccessUrl())
+                .failedUrl(cinetPayConfig.getFailedUrl())
                 .metadata(String.valueOf(user.getCompany().getId()))
-                .customerId(String.valueOf(user.getId()))
-                .customerName(user.getLastName())
-                .customerSurname(user.getFirstName())
-                .customerEmail(user.getEmail())
-                .customerPhoneNumber(request.getCustomerPhone())
-                .customerCountry(request.getCustomerCountry())
+                .clientFirstName(user.getFirstName())
+                .clientLastName(user.getLastName())
+                .clientEmail(user.getEmail())
+                .clientPhoneNumber(request.getCustomerPhone())
                 .build();
 
+        log.info("[Billing] notify_url being sent to CinetPay: {}", cinetPayConfig.getNotifyUrl());
+        // 6. Call CinetPay — on failure, mark transaction FAILED and rethrow
         CinetPayInitResponse cinetPayResponse;
         try {
             cinetPayResponse = cinetPayClient.initiatePayment(cinetPayRequest);
         } catch (CinetPayApiException ex) {
-            // Mark the transaction as failed so it's visible in history
             transaction.setStatus(PaymentStatus.FAILED);
             transaction.setCinetpayResponseCode("INIT_ERROR");
             transactionRepository.save(transaction);
             throw ex;
         }
 
-        // 6. Update record with the token
-        transaction.setCinetpayToken(cinetPayResponse.getData().getPaymentToken());
+        // 7. Update record with the paymentToken for traceability
+        transaction.setCinetpayToken(cinetPayResponse.getPaymentToken());
         transactionRepository.save(transaction);
 
         return InitiatePaymentResponseDTO.builder()
                 .transactionId(transactionId)
-                .paymentToken(cinetPayResponse.getData().getPaymentToken())
-                .paymentUrl(cinetPayResponse.getData().getPaymentUrl())
+                .paymentToken(cinetPayResponse.getPaymentToken())
+                .paymentUrl(cinetPayResponse.getPaymentUrl())
                 .amount(selectedPlan.getPriceXOF())
                 .currency(cinetPayConfig.getCurrency())
                 .planType(selectedPlan.name())
                 .build();
     }
 
-    // ── Get payment status (for frontend polling) ─────────────────────────────
+    // ── Get payment status (frontend polling) ─────────────────────────────────
 
     public PaymentStatusResponseDTO getPaymentStatus(String transactionId) {
 
@@ -149,7 +134,6 @@ public class BillingService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "TRANSACTION_NOT_FOUND", "No transaction found: " + transactionId));
 
-        // Security: only allow access to own company's transactions
         if (!transaction.getCompany().getId().equals(user.getCompany().getId())) {
             throw new BusinessRuleViolationException(
                     "FORBIDDEN_TRANSACTION", "Transaction does not belong to your company.");
@@ -158,7 +142,7 @@ public class BillingService {
         return mapToStatusDTO(transaction);
     }
 
-    // ── Billing history for the current user's company ────────────────────────
+    // ── Billing history ───────────────────────────────────────────────────────
 
     public List<PaymentHistoryDTO> getBillingHistory() {
 
@@ -174,36 +158,41 @@ public class BillingService {
                 .collect(Collectors.toList());
     }
 
-    // ── Admin: all billing history paginated ─────────────────────────────────
+    // ── Admin: all billing history ────────────────────────────────────────────
 
     public Page<PaymentHistoryDTO> getAllBillingHistoryForAdmin(Pageable pageable) {
         return transactionRepository
                 .findAllByOrderByCreatedAtDesc(pageable)
-                .map(this::mapToHistoryDTO);
+                .map(paymentHistory -> PaymentHistoryDTO.builder()
+                        .id(paymentHistory.getId())
+                        .transactionId(paymentHistory.getTransactionId())
+                        .companyName(paymentHistory.getCompany().getName())
+                        .planType(paymentHistory.getPlanType())
+                        .amount(paymentHistory.getAmount())
+                        .currency(paymentHistory.getCurrency())
+                        .status(paymentHistory.getStatus())
+                        .createdAt(paymentHistory.getCreatedAt())
+                        .paidAt(paymentHistory.getPaidAt())
+                        .build()
+                );
+//                .map(this::mapToHistoryDTO);
     }
 
-    // ── Mark a transaction as cancelled (called from frontend on popup close) ─
+    // ── Cancel (user closed popup without paying) ─────────────────────────────
 
     @Transactional
     public void cancelTransaction(String transactionId) {
-
         PaymentTransaction transaction = transactionRepository.findByTransactionId(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "TRANSACTION_NOT_FOUND", "No transaction found: " + transactionId));
 
-        // Only PENDING transactions can be cancelled — don't overwrite a SUCCESS
         if (transaction.getStatus() == PaymentStatus.PENDING) {
             transaction.setStatus(PaymentStatus.CANCELLED);
             transactionRepository.save(transaction);
-            log.info("[Billing] Transaction cancelled by user | transactionId={}", transactionId);
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    private String buildDescription(PlanType plan) {
-        return "Subscription to " + plan.name() + " plan - ExpertSci SaaS";
-    }
+    // ── Mappers ───────────────────────────────────────────────────────────────
 
     private PaymentStatusResponseDTO mapToStatusDTO(PaymentTransaction t) {
         return PaymentStatusResponseDTO.builder()

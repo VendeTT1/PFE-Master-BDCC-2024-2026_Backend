@@ -175,7 +175,7 @@ public class SubscriptionService {
     // ── Upgrade / create subscription for a plan ─────────────────────────────
 
     /**
-     * Called by WebhookHandler after a successful payment verification.
+     * Called by WebHookHandler after a successful payment verification.
      * BUG FIX: preserves the real activeUsersSnapshot on upgrade instead of resetting to 1.
      */
     public Subscription UpgradeSubscriptionForPlan(Company company, PlanType selectedPlan) {

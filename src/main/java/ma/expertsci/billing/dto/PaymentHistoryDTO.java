@@ -13,6 +13,7 @@ public class PaymentHistoryDTO {
 
     private Long id;
     private String transactionId;
+    private String companyName;
     private PlanType planType;
     private int amount;
     private String currency;

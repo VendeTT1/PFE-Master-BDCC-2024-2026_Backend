@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import ma.expertsci.billing.dto.*;
 import ma.expertsci.billing.service.BillingService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,7 +44,7 @@ public class BillingController {
      * Access: OWNER or STAFF of the same company
      */
     @GetMapping("/status/{transactionId}")
-    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<PaymentStatusResponseDTO> getPaymentStatus(
             @PathVariable String transactionId) {
         return ResponseEntity.ok(billingService.getPaymentStatus(transactionId));
@@ -69,7 +70,7 @@ public class BillingController {
      * Useful for a "Billing" page in the dashboard.
      */
     @GetMapping("/history")
-    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<List<PaymentHistoryDTO>> getBillingHistory() {
         return ResponseEntity.ok(billingService.getBillingHistory());
     }
@@ -82,7 +83,12 @@ public class BillingController {
      */
     @GetMapping("/admin/history")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Page<PaymentHistoryDTO>> getAllBillingHistory(Pageable pageable) {
+    public ResponseEntity<Page<PaymentHistoryDTO>> getAllBillingHistory(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size)  {
+        size = Math.min(size, 50);
+
+        Pageable pageable = PageRequest.of(page, size);
         return ResponseEntity.ok(billingService.getAllBillingHistoryForAdmin(pageable));
     }
 }

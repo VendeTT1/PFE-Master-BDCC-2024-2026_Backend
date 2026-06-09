@@ -79,7 +79,6 @@ public class SubscriptionController {
                                                          @PathVariable PlanType planType){
         try {
             Company company = companyRepository.findByName(companyName);
-            System.out.println("found company :-------->>>:"+company.getName());
             subscriptionService.UpgradeSubscriptionForPlan(company, planType);
         }
         catch (RuntimeException e) {

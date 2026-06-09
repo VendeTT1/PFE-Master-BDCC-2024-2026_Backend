@@ -100,9 +100,9 @@ public class AuthService {
                 .findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "User not found"));
 //      check if the user's company if active or not
-        if (user.getRole() != UserRole.ADMIN) {
-            subscriptionService.checkSubscriptionValidity(user.getCompany());
-        }
+//        if (user.getRole() != UserRole.ADMIN) {
+//            subscriptionService.checkSubscriptionValidity(user.getCompany());
+//        }
 
 //        generate JWT and Refresh token for security purposes
         String accessToken = jwtService.generateToken(

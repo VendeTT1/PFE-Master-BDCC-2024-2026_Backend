@@ -5,61 +5,49 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
- * Mapped from the JSON response of POST https://api-checkout.cinetpay.com/v2/payment/check
+ * Flat response from POST https://api.cinetpay.net/v1/payment/check
  *
- * Key field: data.payment_status
- *   "ACCEPTED"            → payment confirmed, activate subscription
- *   "REFUSED"             → payment declined
- *   "CANCELLED"           → user cancelled
- *   "WAITING_FOR_CUSTOMER"→ mobile money push sent, awaiting user approval (NOT a final state)
- *
- * Key field: data.code (also called cpm_result in older API)
- *   "00" → success/accepted
+ * {
+ *   "code": 200,
+ *   "status": "ACCEPTED" | "REFUSED" | "CANCELLED" | "WAITING_FOR_CUSTOMER",
+ *   "merchant_transaction_id": "...",
+ *   "amount": "15000",
+ *   "currency": "XOF",
+ *   "payment_method": "MOBILE_MONEY",
+ *   "error_message": null
+ * }
  */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CinetPayVerifyResponse {
 
     @JsonProperty("code")
-    private String code;
+    private int code;
 
-    @JsonProperty("message")
-    private String message;
+    /** ACCEPTED | REFUSED | CANCELLED | WAITING_FOR_CUSTOMER */
+    @JsonProperty("status")
+    private String status;
 
-    @JsonProperty("data")
-    private VerifyData data;
+    @JsonProperty("merchant_transaction_id")
+    private String merchantTransactionId;
+
+    @JsonProperty("amount")
+    private String amount;
+
+    @JsonProperty("currency")
+    private String currency;
+
+    @JsonProperty("payment_method")
+    private String paymentMethod;
+
+    @JsonProperty("error_message")
+    private String errorMessage;
 
     public boolean isAccepted() {
-        return data != null && "ACCEPTED".equalsIgnoreCase(data.getPaymentStatus());
+        return "ACCEPTED".equalsIgnoreCase(status) || "SUCCESS".equalsIgnoreCase(status);
     }
 
     public boolean isWaitingForCustomer() {
-        return data != null && "WAITING_FOR_CUSTOMER".equalsIgnoreCase(data.getPaymentStatus());
-    }
-
-    @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class VerifyData {
-
-        @JsonProperty("payment_status")
-        private String paymentStatus;   // ACCEPTED | REFUSED | CANCELLED | WAITING_FOR_CUSTOMER
-
-        @JsonProperty("cpm_result")
-        private String cpmResult;       // "00" on success
-
-        @JsonProperty("cpm_amount")
-        private String amount;
-
-        @JsonProperty("cpm_currency")
-        private String currency;
-
-        @JsonProperty("cpm_trans_id")
-        private String transactionId;
-
-        @JsonProperty("cpm_error_message")
-        private String errorMessage;
-
-        @JsonProperty("payment_method")
-        private String paymentMethod;
+        return "WAITING_FOR_CUSTOMER".equalsIgnoreCase(status);
     }
 }

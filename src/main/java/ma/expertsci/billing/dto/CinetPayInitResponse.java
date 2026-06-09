@@ -5,51 +5,47 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
- * Mapped from the JSON response of POST https://api-checkout.cinetpay.com/v2/payment
+ * Flat response from POST https://api.cinetpay.net/v1/payment
  *
- * Success response shape:
  * {
- *   "code": "201",
- *   "message": "CREATED",
- *   "description": "Transaction created with success",
- *   "data": {
- *     "payment_token": "...",
- *     "payment_url": "https://checkout.cinetpay.com/payment/..."
- *   },
- *   "api_response_id": "..."
+ *   "code": 200,
+ *   "status": "OK",
+ *   "merchant_transaction_id": "...",
+ *   "notify_token": "...",
+ *   "transaction_id": "...",
+ *   "payment_token": "...",
+ *   "payment_url": "https://secure.cinetpay.net/payment/...",
+ *   "details": { "code": 2010, "status": "FAILED", ... }  ← ignore, only relevant after payment
  * }
+ *
+ * No nested data object — all fields are at the root level.
  */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CinetPayInitResponse {
 
     @JsonProperty("code")
-    private String code;
+    private int code;
 
-    @JsonProperty("message")
-    private String message;
+    @JsonProperty("status")
+    private String status;
 
-    @JsonProperty("description")
-    private String description;
+    @JsonProperty("merchant_transaction_id")
+    private String merchantTransactionId;
 
-    @JsonProperty("api_response_id")
-    private String apiResponseId;
+    @JsonProperty("notify_token")
+    private String notifyToken;
 
-    @JsonProperty("data")
-    private PaymentData data;
+    @JsonProperty("transaction_id")
+    private String transactionId;
+
+    @JsonProperty("payment_token")
+    private String paymentToken;
+
+    @JsonProperty("payment_url")
+    private String paymentUrl;
 
     public boolean isSuccess() {
-        return "201".equals(code);
-    }
-
-    @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class PaymentData {
-
-        @JsonProperty("payment_token")
-        private String paymentToken;
-
-        @JsonProperty("payment_url")
-        private String paymentUrl;
+        return code == 200 && paymentToken != null && !paymentToken.isBlank();
     }
 }

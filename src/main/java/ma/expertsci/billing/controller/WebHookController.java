@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
  * If it returns non-200, CinetPay will retry the webhook indefinitely,
  * which can cause duplicate subscription activations.
  *
- * All safety against duplication is handled inside WebhookHandler via
+ * All safety against duplication is handled inside WebHookHandler via
  * idempotency checks on the transaction status.
  */
 @Slf4j
@@ -37,22 +37,20 @@ public class WebHookController {
     public ResponseEntity<Void> handleCinetPayWebhook(
             @RequestBody(required = false) CinetPayWebhookPayload payload) {
 
-        // Log the raw callback for debugging (especially useful in early integration)
         log.info("[Webhook] CinetPay callback received | transId={}",
-                payload != null ? payload.getCpmTransId() : "null");
+                payload != null ? payload.getMerchantTransactionId() : "null");
 
         try {
             if (payload != null) {
                 webhookHandler.handle(payload);
             } else {
-                log.warn("[Webhook] Received empty payload from CinetPay — ignoring.");
+                log.warn("[Webhook] Empty payload received — ignoring.");
             }
         } catch (Exception ex) {
-            // Catch everything — we must return 200 regardless
-            log.error("[Webhook] Unhandled exception in webhook handler: {}", ex.getMessage(), ex);
+            // Must catch everything — always return 200
+            log.error("[Webhook] Unhandled exception: {}", ex.getMessage(), ex);
         }
 
-        // Always 200 — see class javadoc
         return ResponseEntity.ok().build();
     }
 }

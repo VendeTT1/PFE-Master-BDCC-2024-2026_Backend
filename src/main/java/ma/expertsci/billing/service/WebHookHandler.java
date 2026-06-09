@@ -7,116 +7,82 @@ import ma.expertsci.billing.dto.CinetPayWebhookPayload;
 import ma.expertsci.billing.entity.PaymentStatus;
 import ma.expertsci.billing.entity.PaymentTransaction;
 import ma.expertsci.billing.repository.PaymentTransactionRepository;
-import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.subscriptions.service.SubscriptionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
-/**
- * Handles the full webhook callback lifecycle from CinetPay.
- *
- * CRITICAL RULES (from CinetPay docs):
- *
- * 1. Your notify_url WILL be called multiple times for the same transaction.
- *    Always check if the transaction is already SUCCESS before doing anything.
- *
- * 2. Never trust the payload — always call /v2/payment/check to get real status.
- *
- * 3. Always return HTTP 200 to CinetPay, even on errors.
- *    Non-200 responses will cause CinetPay to retry indefinitely.
- *
- * 4. WAITING_FOR_CUSTOMER is NOT a final state — it means the mobile money
- *    push was sent. A follow-up webhook will arrive with the final status.
- */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class WebHookHandler {
 
-    private final CinetPayClientService cinetPayClient;
+    private final CinetPayClientService cinetPayClientService;
     private final PaymentTransactionRepository transactionRepository;
     private final SubscriptionService subscriptionService;
 
     @Transactional
     public void handle(CinetPayWebhookPayload payload) {
 
-        String transactionId = payload.getCpmTransId();
+        String transactionId = payload.getMerchantTransactionId();
         log.info("[Webhook] Received callback | transactionId={}", transactionId);
 
         if (transactionId == null || transactionId.isBlank()) {
-            log.warn("[Webhook] Received webhook with missing cpm_trans_id — ignoring.");
+            log.warn("[Webhook] Missing transaction id — ignoring.");
             return;
         }
 
-        // 1. Look up the transaction
-        PaymentTransaction transaction = transactionRepository.findByTransactionId(transactionId)
-                .orElse(null);
+        PaymentTransaction transaction = transactionRepository
+                .findByTransactionId(transactionId).orElse(null);
 
         if (transaction == null) {
-            log.warn("[Webhook] No transaction found for id={} — possibly a test ping or stale webhook.", transactionId);
+            log.warn("[Webhook] No transaction found for id={}", transactionId);
             return;
         }
 
-        // 2. Idempotency guard — if already SUCCESS, do nothing
-        //    CinetPay calls notify_url multiple times; we must not re-activate
+        // Idempotency — already processed
         if (transaction.getStatus() == PaymentStatus.SUCCESS) {
-            log.info("[Webhook] Transaction already processed as SUCCESS | transactionId={} — skipping.", transactionId);
+            log.info("[Webhook] Already SUCCESS | transactionId={} — skipping.", transactionId);
             return;
         }
 
-        // 3. Call CinetPay to get the REAL verified status
-        CinetPayVerifyResponse verifyResponse;
+        // Always verify with CinetPay — never trust webhook payload alone
+        CinetPayVerifyResponse verify;
         try {
-            verifyResponse = cinetPayClient.verifyTransaction(transactionId);
+            verify = cinetPayClientService.verifyTransaction(transactionId);
         } catch (Exception ex) {
-            log.error("[Webhook] Verification call failed | transactionId={} error={}", transactionId, ex.getMessage());
-            // Don't update the transaction — leave it PENDING so the next webhook retry can try again
-            return;
+            log.error("[Webhook] Verification failed | txId={} error={}", transactionId, ex.getMessage());
+            return; // leave PENDING, next webhook retry will try again
         }
 
-        // 4. Handle each possible status
-        if (verifyResponse.isAccepted()) {
-            handleAccepted(transaction, verifyResponse);
-
-        } else if (verifyResponse.isWaitingForCustomer()) {
+        if (verify.isAccepted()) {
+            handleAccepted(transaction, verify);
+        } else if (verify.isWaitingForCustomer()) {
             handleWaiting(transaction);
-
         } else {
-            handleFailed(transaction, verifyResponse);
+            handleFailed(transaction, verify);
         }
     }
 
-    // ── Accepted ─────────────────────────────────────────────────────────────
-
-    private void handleAccepted(PaymentTransaction transaction, CinetPayVerifyResponse verifyResponse) {
-        log.info("[Webhook] Payment ACCEPTED | transactionId={} plan={}",
+    private void handleAccepted(PaymentTransaction transaction, CinetPayVerifyResponse verify) {
+        log.info("[Webhook] ACCEPTED | txId={} plan={}",
                 transaction.getTransactionId(), transaction.getPlanType());
 
-        String responseCode = verifyResponse.getData() != null
-                ? verifyResponse.getData().getCpmResult()
-                : "00";
-
         transaction.setStatus(PaymentStatus.SUCCESS);
-        transaction.setCinetpayResponseCode(responseCode);
+        transaction.setCinetpayResponseCode(verify.getStatus());
         transaction.setPaidAt(LocalDateTime.now());
         transactionRepository.save(transaction);
 
-        // Upgrade the subscription
         try {
             subscriptionService.UpgradeSubscriptionForPlan(
-                    transaction.getCompany(),
-                    transaction.getPlanType()
-            );
+                    transaction.getCompany(), transaction.getPlanType());
             log.info("[Webhook] Subscription upgraded | company={} plan={}",
                     transaction.getCompany().getName(), transaction.getPlanType());
         } catch (Exception ex) {
-            // This is a serious inconsistency: payment succeeded but subscription upgrade failed.
-            // Log it loudly — ops team must investigate. The transaction is still marked SUCCESS
-            // so the idempotency guard won't re-process it.
             log.error("[Webhook] CRITICAL: Payment succeeded but subscription upgrade FAILED | " +
-                            "transactionId={} company={} plan={} error={}",
+                            "txId={} company={} plan={} error={}",
                     transaction.getTransactionId(),
                     transaction.getCompany().getName(),
                     transaction.getPlanType(),
@@ -124,35 +90,17 @@ public class WebHookHandler {
         }
     }
 
-    // ── Waiting for customer (Mobile Money push sent) ─────────────────────────
-
     private void handleWaiting(PaymentTransaction transaction) {
-        log.info("[Webhook] WAITING_FOR_CUSTOMER | transactionId={} — awaiting user mobile approval.",
-                transaction.getTransactionId());
-
-        // Update to WAITING_CUSTOMER but keep it non-final so follow-up webhook can process it
+        log.info("[Webhook] WAITING_FOR_CUSTOMER | txId={}", transaction.getTransactionId());
         transaction.setStatus(PaymentStatus.WAITING_CUSTOMER);
         transactionRepository.save(transaction);
-
-        // Note: the next webhook callback from CinetPay will be either ACCEPTED or REFUSED
-        // At that point this method will be called again and will go into handleAccepted or handleFailed
     }
 
-    // ── Failed / Refused ─────────────────────────────────────────────────────
-
-    private void handleFailed(PaymentTransaction transaction, CinetPayVerifyResponse verifyResponse) {
-        String paymentStatus = verifyResponse.getData() != null
-                ? verifyResponse.getData().getPaymentStatus()
-                : "UNKNOWN";
-        String errorMsg = verifyResponse.getData() != null
-                ? verifyResponse.getData().getErrorMessage()
-                : null;
-
-        log.info("[Webhook] Payment FAILED/REFUSED | transactionId={} status={} reason={}",
-                transaction.getTransactionId(), paymentStatus, errorMsg);
-
+    private void handleFailed(PaymentTransaction transaction, CinetPayVerifyResponse verify) {
+        log.info("[Webhook] FAILED | txId={} status={} reason={}",
+                transaction.getTransactionId(), verify.getStatus(), verify.getErrorMessage());
         transaction.setStatus(PaymentStatus.FAILED);
-        transaction.setCinetpayResponseCode(paymentStatus);
+        transaction.setCinetpayResponseCode(verify.getStatus());
         transactionRepository.save(transaction);
     }
 }

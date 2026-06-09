@@ -3,24 +3,18 @@ package ma.expertsci.billing.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import ma.expertsci.billing.config.CinetPayConfig;
-import ma.expertsci.billing.dto.CinetPayInitRequest;
-import ma.expertsci.billing.dto.CinetPayInitResponse;
-import ma.expertsci.billing.dto.CinetPayVerifyRequest;
-import ma.expertsci.billing.dto.CinetPayVerifyResponse;
+import ma.expertsci.billing.dto.*;
 import ma.expertsci.billing.exception.CinetPayApiException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-/**
- * Thin HTTP wrapper around the CinetPay REST API.
- * Responsible for: initiating a payment and verifying a transaction.
- * All business logic lives in BillingService — this class only does I/O.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -28,108 +22,93 @@ public class CinetPayClientService {
 
     private final RestTemplate restTemplate;
     private final CinetPayConfig config;
+    private final CinetPayTokenService tokenService;
 
-    /**
-     * Step 1 of the payment flow.
-     * Calls POST /v2/payment to register a new transaction with CinetPay.
-     * On success, returns a payment_token to hand off to the Seamless SDK.
-     *
-     * @throws CinetPayApiException if CinetPay returns a non-201 code or the call fails
-     */
+    // ── POST /v1/payment ─────────────────────────────────────────────────────
+
     public CinetPayInitResponse initiatePayment(CinetPayInitRequest request) {
-        log.info("[CinetPay] Initiating payment | transactionId={} amount={} currency={}",
-                request.getTransactionId(), request.getAmount(), request.getCurrency());
+        String url = config.getBaseUrl() + "/payment";
+        log.info("[CinetPay] Initiating payment | txId={} amount={} currency={}",
+                request.getMerchantTransactionId(), request.getAmount(), request.getCurrency());
 
-        HttpHeaders headers = buildJsonHeaders();
-        HttpEntity<CinetPayInitRequest> entity = new HttpEntity<>(request, headers);
-
-        try {
-            ResponseEntity<CinetPayInitResponse> response = restTemplate.postForEntity(
-                    config.getPaymentUrl(),
-                    entity,
-                    CinetPayInitResponse.class
-            );
+        return executeWithRetry(() -> {
+            HttpEntity<CinetPayInitRequest> entity = new HttpEntity<>(request, buildAuthHeaders());
+            ResponseEntity<CinetPayInitResponse> response =
+                    restTemplate.postForEntity(url, entity, CinetPayInitResponse.class);
 
             CinetPayInitResponse body = response.getBody();
-
             if (body == null) {
                 throw new CinetPayApiException("CINETPAY_NULL_RESPONSE",
-                        "CinetPay returned a null response for transaction: " + request.getTransactionId());
+                        "CinetPay returned null for payment initiation: " + request.getMerchantTransactionId());
             }
-
             if (!body.isSuccess()) {
-                log.error("[CinetPay] Initiation failed | code={} message={} description={}",
-                        body.getCode(), body.getMessage(), body.getDescription());
+                log.error("[CinetPay] Initiation failed | code={} status={}",
+                        body.getCode(), body.getStatus());
                 throw new CinetPayApiException("CINETPAY_INIT_FAILED",
-                        "CinetPay initiation failed: [" + body.getCode() + "] " + body.getDescription());
+                        "CinetPay initiation failed: [" + body.getCode() + "] " + body.getStatus());
             }
 
-            log.info("[CinetPay] Payment initiated successfully | transactionId={} token={}",
-                    request.getTransactionId(), body.getData().getPaymentToken());
-
+            log.info("[CinetPay] Payment initiated | txId={} paymentToken={}",
+                    request.getMerchantTransactionId(), body.getPaymentToken());
             return body;
-
-        } catch (RestClientException ex) {
-            log.error("[CinetPay] HTTP error during initiation | transactionId={} error={}",
-                    request.getTransactionId(), ex.getMessage());
-            throw new CinetPayApiException("CINETPAY_HTTP_ERROR",
-                    "Failed to reach CinetPay API: " + ex.getMessage());
-        }
+        }, "payment initiation for " + request.getMerchantTransactionId());
     }
 
-    /**
-     * Step 2 of the payment flow — called ONLY from the webhook handler.
-     * Calls POST /v2/payment/check to get the verified real status.
-     *
-     * CinetPay explicitly does NOT send the payment status in webhook callbacks
-     * to prevent spoofing. This call is mandatory before activating a subscription.
-     *
-     * @param transactionId your internal transaction_id
-     * @throws CinetPayApiException if the call fails
-     */
+    // ── GET /v1/payment/{merchant_transaction_id} ─────────────────────────────
+
     public CinetPayVerifyResponse verifyTransaction(String transactionId) {
-        log.info("[CinetPay] Verifying transaction | transactionId={}", transactionId);
+        String url = config.getBaseUrl() + "/payment/" + transactionId;
+        log.info("[CinetPay] Verifying transaction | txId={}", transactionId);
 
-        CinetPayVerifyRequest request = CinetPayVerifyRequest.builder()
-                .transactionId(transactionId)
-                .siteId(config.getSiteId())
-                .apikey(config.getApiKey())
-                .build();
-
-        HttpHeaders headers = buildJsonHeaders();
-        HttpEntity<CinetPayVerifyRequest> entity = new HttpEntity<>(request, headers);
-
-        try {
-            ResponseEntity<CinetPayVerifyResponse> response = restTemplate.postForEntity(
-                    config.getVerifyUrl(),
-                    entity,
-                    CinetPayVerifyResponse.class
-            );
+        return executeWithRetry(() -> {
+            // GET with Authorization header only — no request body
+            HttpEntity<Void> entity = new HttpEntity<>(buildAuthHeaders());
+            ResponseEntity<CinetPayVerifyResponse> response =
+                    restTemplate.exchange(url, HttpMethod.GET, entity, CinetPayVerifyResponse.class);
 
             CinetPayVerifyResponse body = response.getBody();
-
             if (body == null) {
                 throw new CinetPayApiException("CINETPAY_NULL_VERIFY_RESPONSE",
-                        "CinetPay returned null for verification of transaction: " + transactionId);
+                        "CinetPay returned null for verification: " + transactionId);
             }
 
-            log.info("[CinetPay] Verification result | transactionId={} status={}",
-                    transactionId,
-                    body.getData() != null ? body.getData().getPaymentStatus() : "null");
-
+            log.info("[CinetPay] Verification result | txId={} status={}",
+                    transactionId, body.getStatus());
             return body;
+        }, "verification of " + transactionId);
+    }
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private HttpHeaders buildAuthHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(tokenService.getValidToken());
+        return headers;
+    }
+
+    private <T> T executeWithRetry(ApiCall<T> call, String description) {
+        try {
+            return call.execute();
+        } catch (HttpClientErrorException.Unauthorized ex) {
+            log.warn("[CinetPay] 401 on {} — invalidating token and retrying once.", description);
+            tokenService.invalidateToken();
+            try {
+                return call.execute();
+            } catch (RestClientException retryEx) {
+                log.error("[CinetPay] Retry also failed for {}: {}", description, retryEx.getMessage());
+                throw new CinetPayApiException("CINETPAY_AUTH_RETRY_FAILED",
+                        "CinetPay call failed after token refresh: " + retryEx.getMessage());
+            }
         } catch (RestClientException ex) {
-            log.error("[CinetPay] HTTP error during verification | transactionId={} error={}",
-                    transactionId, ex.getMessage());
-            throw new CinetPayApiException("CINETPAY_VERIFY_HTTP_ERROR",
-                    "Failed to verify transaction with CinetPay: " + ex.getMessage());
+            log.error("[CinetPay] HTTP error on {}: {}", description, ex.getMessage());
+            throw new CinetPayApiException("CINETPAY_HTTP_ERROR",
+                    "CinetPay HTTP error during " + description + ": " + ex.getMessage());
         }
     }
 
-    private HttpHeaders buildJsonHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        return headers;
+    @FunctionalInterface
+    private interface ApiCall<T> {
+        T execute();
     }
 }

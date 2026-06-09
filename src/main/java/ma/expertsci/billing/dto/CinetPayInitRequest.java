@@ -5,37 +5,28 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 
-/**
- * Maps exactly to the JSON body expected by:
- *   POST https://api-checkout.cinetpay.com/v2/payment
- *
- * Required fields: apikey, site_id, transaction_id, amount, currency,
- *                  description, notify_url, return_url
- *
- * Optional customer fields are needed to enable credit card payment universe.
- */
+
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CinetPayInitRequest {
+    @JsonProperty("currency")
+    private String currency;
 
-    @JsonProperty("apikey")
-    private String apikey;
-
-    @JsonProperty("site_id")
-    private String siteId;
-
-    @JsonProperty("transaction_id")
-    private String transactionId;
+    @JsonProperty("merchant_transaction_id")
+    private String merchantTransactionId;
 
     @JsonProperty("amount")
     private int amount;
 
-    @JsonProperty("currency")
-    private String currency;
+    @JsonProperty("designation")
+    private String designation;
 
-    @JsonProperty("description")
-    private String description;
+    @JsonProperty("lang")
+    private String lang;
+
+    @JsonProperty("channel")
+    private String channel;   // PUSH | MOBILE_MONEY | CREDIT_CARD | ALL
 
     @JsonProperty("notify_url")
     private String notifyUrl;
@@ -43,31 +34,24 @@ public class CinetPayInitRequest {
     @JsonProperty("return_url")
     private String returnUrl;
 
-    @JsonProperty("channels")
-    private String channels;
+    @JsonProperty("success_url")
+    private String successUrl;
 
-    @JsonProperty("lang")
-    private String lang;
+    @JsonProperty("failed_url")
+    private String failedUrl;
 
     @JsonProperty("metadata")
-    private String metadata;  // we'll store companyId here for traceability
+    private String metadata;
 
-    // Optional — required for credit card universe
-    @JsonProperty("customer_id")
-    private String customerId;
+    @JsonProperty("client_first_name")
+    private String clientFirstName;
 
-    @JsonProperty("customer_name")
-    private String customerName;
+    @JsonProperty("client_last_name")
+    private String clientLastName;
 
-    @JsonProperty("customer_surname")
-    private String customerSurname;
+    @JsonProperty("client_email")
+    private String clientEmail;
 
-    @JsonProperty("customer_email")
-    private String customerEmail;
-
-    @JsonProperty("customer_phone_number")
-    private String customerPhoneNumber;
-
-    @JsonProperty("customer_country")
-    private String customerCountry;
+    @JsonProperty("client_phone_number")
+    private String clientPhoneNumber;
 }

@@ -16,21 +16,12 @@ import lombok.Data;
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CinetPayWebhookPayload {
+    @JsonProperty("merchant_transaction_id")
+    private String merchantTransactionId;
 
-    /**
-     * Corresponds to the transaction_id you sent at initiation.
-     * This is the key to look up your PaymentTransaction record.
-     */
-    @JsonProperty("cpm_trans_id")
-    private String cpmTransId;
-
-    // Extra fields captured for logging — not used for business logic
-    @JsonProperty("cpm_site_id")
-    private String cpmSiteId;
-
-    @JsonProperty("cpm_result")
-    private String cpmResult;
-
-    @JsonProperty("cpm_amount")
-    private String cpmAmount;
+//    @JsonProperty("status")
+//    private String status;
+//
+//    @JsonProperty("amount")
+//    private String amount;
 }

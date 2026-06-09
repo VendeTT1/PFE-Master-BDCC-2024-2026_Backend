@@ -15,12 +15,6 @@ import lombok.Data;
 @Builder
 public class CinetPayVerifyRequest {
 
-    @JsonProperty("transaction_id")
-    private String transactionId;
-
-    @JsonProperty("site_id")
-    private String siteId;
-
-    @JsonProperty("apikey")
-    private String apikey;
+    @JsonProperty("merchant_transaction_id")
+    private String merchantTransactionId;
 }
