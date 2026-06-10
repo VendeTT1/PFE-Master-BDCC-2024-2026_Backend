@@ -5,8 +5,12 @@ import ma.expertsci.account.entities.company.Company;
 import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.entities.user.UserRole;
 import ma.expertsci.account.repository.UserRepository;
+import ma.expertsci.exception.BusinessRuleViolationException;
 import ma.expertsci.exception.ExternalServiceException;
 import ma.expertsci.exception.ForbiddenActionException;
+import ma.expertsci.instances.exception.InstanceErrorCodes;
+import ma.expertsci.subscriptions.entities.SubscriptionStatus;
+import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.instances.dto.CreatedInstanceRequestDTO;
 import ma.expertsci.instances.dto.DockerResultDTO;
@@ -28,12 +32,13 @@ public class InstanceService {
     private final InstanceRepository instanceRepository;
     private final UserRepository userRepository;
     private final DockerService dockerService;
+    private final SubscriptionRepository subscriptionRepository;
 
-
-    public InstanceService(InstanceRepository instanceRepository, UserRepository userRepository, DockerService dockerService) {
+    public InstanceService(InstanceRepository instanceRepository, UserRepository userRepository, DockerService dockerService, SubscriptionRepository subscriptionRepository) {
         this.instanceRepository = instanceRepository;
         this.userRepository = userRepository;
         this.dockerService = dockerService;
+        this.subscriptionRepository = subscriptionRepository;
     }
     // ── Create instance ──────────────────────────────────────────────────────
 
@@ -53,6 +58,34 @@ public class InstanceService {
 
         Company company = user.getCompany();
         String instanceName = company.getName();
+
+        // ── Rule 1: One instance per company ─────────────────────────────────
+        if (!instanceRepository.findByCompany(company).isEmpty()) {
+            throw new BusinessRuleViolationException(
+                    InstanceErrorCodes.INSTANCE_ALREADY_EXISTS,
+                    "Company '" + instanceName + "' already has an instance. " +
+                            "Only one instance per company is allowed.");
+        }
+
+        // ── Rule 2: Subscription must be active to create an instance ─────────
+        subscriptionRepository.findByCompany(company).ifPresent(sub -> {
+            if (sub.getStatus() == SubscriptionStatus.SUSPENDED) {
+                throw new BusinessRuleViolationException(
+                        InstanceErrorCodes.SUBSCRIPTION_REQUIRED,
+                        "Your subscription is suspended. Please contact support.");
+            }
+            if (sub.getStatus() == SubscriptionStatus.EXPIRED
+                    || (sub.getEndDate() != null && sub.getEndDate().isBefore(java.time.LocalDateTime.now()))) {
+                throw new BusinessRuleViolationException(
+                        InstanceErrorCodes.SUBSCRIPTION_REQUIRED,
+                        "Your subscription has expired. Please renew to create an instance.");
+            }
+            if (sub.getStatus() != SubscriptionStatus.ACTIVE) {
+                throw new BusinessRuleViolationException(
+                        InstanceErrorCodes.SUBSCRIPTION_REQUIRED,
+                        "An active subscription is required to create an instance.");
+            }
+        });
 
         Instance instance = new Instance();
         instance.setName(instanceName);
@@ -124,6 +157,9 @@ public class InstanceService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         InstanceErrorCodes.USER_NOT_FOUND,
                         "No user found with email: " + email));
+
+        // ── Rule 2: Block access if subscription is expired ───────────────────
+        checkSubscriptionActive(user.getCompany());
 
         Instance instance = instanceRepository.findByName(user.getCompany().getName())
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -214,6 +250,38 @@ public class InstanceService {
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
+
+    /**
+     * Throws BusinessRuleViolationException if the company's subscription
+     * is expired, suspended, or otherwise inactive.
+     * Called before any operation that gives the user access to their instance.
+     */
+    private void checkSubscriptionActive(Company company) {
+        subscriptionRepository.findByCompany(company).ifPresent(sub -> {
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+            if (sub.getStatus() == SubscriptionStatus.SUSPENDED) {
+                throw new BusinessRuleViolationException(
+                        InstanceErrorCodes.SUBSCRIPTION_REQUIRED,
+                        "Your subscription is suspended. Please contact support.");
+            }
+            if (sub.getEndDate() != null && sub.getEndDate().isBefore(now)) {
+                throw new BusinessRuleViolationException(
+                        InstanceErrorCodes.SUBSCRIPTION_REQUIRED,
+                        "Your subscription has expired. Please renew to access your instance.");
+            }
+            if (sub.getStatus() == SubscriptionStatus.EXPIRED) {
+                throw new BusinessRuleViolationException(
+                        InstanceErrorCodes.SUBSCRIPTION_REQUIRED,
+                        "Your subscription has expired. Please renew to access your instance.");
+            }
+            if (sub.getStatus() != SubscriptionStatus.ACTIVE) {
+                throw new BusinessRuleViolationException(
+                        InstanceErrorCodes.SUBSCRIPTION_REQUIRED,
+                        "An active subscription is required to access your instance.");
+            }
+        });
+    }
 
     private InstanceResponseDTO mapToResponse(Instance instance) {
         return InstanceResponseDTO.builder()

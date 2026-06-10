@@ -1,8 +1,10 @@
 package ma.expertsci.instances.controller;
 
 import lombok.RequiredArgsConstructor;
-import ma.expertsci.account.entities.user.User;
 import ma.expertsci.account.service.UserService;
+import ma.expertsci.exception.BusinessRuleViolationException;
+import ma.expertsci.subscriptions.entities.SubscriptionStatus;
+import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import ma.expertsci.instances.dto.AccessURLDTO;
 import ma.expertsci.instances.dto.CreatedInstanceRequestDTO;
 import ma.expertsci.instances.dto.InstanceResponseDTO;
@@ -30,6 +32,7 @@ public class InstanceController {
     private final JwtService jwtService;
     private final UserService userService;
     private final DockerService dockerService;
+    private final SubscriptionRepository subscriptionRepository;
 
     // ── Create instance ──────────────────────────────────────────────────────
 
@@ -55,7 +58,7 @@ public class InstanceController {
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
-//    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    //    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/start")
     public ResponseEntity<InstanceStatus> start(Authentication auth, @PathVariable Long id) throws Exception {
@@ -63,7 +66,7 @@ public class InstanceController {
         return ResponseEntity.ok(InstanceStatus.RUNNING);
     }
 
-//    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
+    //    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/stop")
     public ResponseEntity<InstanceStatus> stop(Authentication auth, @PathVariable Long id) throws Exception {
@@ -71,7 +74,7 @@ public class InstanceController {
         return ResponseEntity.ok(InstanceStatus.STOPPED);
     }
 
-//    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    //    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/restart")
     public ResponseEntity<InstanceStatus> restart(Authentication auth, @PathVariable Long id) throws Exception {
@@ -100,7 +103,33 @@ public class InstanceController {
             Authentication auth,
             @PathVariable Long id
     ) {
+        // ── Rule 2: Block access if subscription expired ──────────────────────
         Instance instance = instanceService.getInstanceForUser(auth.getName(), id);
+
+        subscriptionRepository.findByCompany(instance.getCompany()).ifPresent(sub -> {
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+            boolean expired = sub.getStatus() == SubscriptionStatus.EXPIRED
+                    || (sub.getEndDate() != null && sub.getEndDate().isBefore(now));
+            boolean suspended = sub.getStatus() == SubscriptionStatus.SUSPENDED;
+            boolean inactive = sub.getStatus() != SubscriptionStatus.ACTIVE;
+
+            if (suspended) {
+                throw new BusinessRuleViolationException(
+                        "SUBSCRIPTION_SUSPENDED",
+                        "Your subscription is suspended. Please contact support.");
+            }
+            if (expired) {
+                throw new BusinessRuleViolationException(
+                        "SUBSCRIPTION_EXPIRED",
+                        "Your subscription has expired. Please renew to access your instance.");
+            }
+            if (inactive) {
+                throw new BusinessRuleViolationException(
+                        "SUBSCRIPTION_INACTIVE",
+                        "An active subscription is required to access your instance.");
+            }
+        });
 
         String role = auth.getAuthorities()
                 .stream()

@@ -58,12 +58,17 @@ public class DockerService {
             );
         }
 
-        // ── 2. Check if instance already exists for this company ──
-        boolean exists = instanceRepository.findByCompany(companyRepository.findByName(instanceName)).isEmpty();
-        if (exists) {
+        // ── 2. Guard: instance already exists for this company ────────────────
+        // This is a safety net — InstanceService.createInstance() already checks
+        // this before calling Docker. This stops any direct DockerService calls.
+        boolean alreadyExists = instanceRepository.findByCompany(
+                companyRepository.findByName(instanceName)) != null
+                && !instanceRepository.findByCompany(
+                companyRepository.findByName(instanceName)).isEmpty();
+        if (alreadyExists) {
             throw new ExternalServiceException(
                     InstanceErrorCodes.DOCKER_ERROR,
-                    "An instance already exists for this company. Aborting instance creation.",
+                    "An instance already exists for company '" + instanceName + "'. Aborting.",
                     null
             );
         }

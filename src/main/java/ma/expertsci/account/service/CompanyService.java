@@ -12,6 +12,9 @@ import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.exception.BusinessRuleViolationException;
 import ma.expertsci.exception.ForbiddenActionException;
 import ma.expertsci.exception.ResourceNotFoundException;
+import ma.expertsci.subscriptions.entities.Subscription;
+import ma.expertsci.subscriptions.repository.SubscriptionRepository;
+import ma.expertsci.subscriptions.service.SubscriptionService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,6 +24,8 @@ public class CompanyService {
 
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final SubscriptionService subscriptionService;
 
     public Company getCurrentCompany(String email) {
         User user = userRepository.findByEmail(email)
@@ -70,7 +75,6 @@ public class CompanyService {
     public List<UserResponseDTO> getCompanyUsers(String email) {
 
         Company company = getCurrentCompany(email);
-
         return company.getUsers()
                 .stream()
                 .map(user -> UserResponseDTO.builder()
