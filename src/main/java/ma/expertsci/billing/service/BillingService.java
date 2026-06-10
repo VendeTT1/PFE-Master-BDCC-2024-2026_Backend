@@ -14,7 +14,13 @@ import ma.expertsci.billing.repository.PaymentTransactionRepository;
 import ma.expertsci.exception.BusinessRuleViolationException;
 import ma.expertsci.exception.ResourceNotFoundException;
 import ma.expertsci.subscriptions.entities.PlanType;
+import ma.expertsci.subscriptions.entities.Subscription;
+import ma.expertsci.subscriptions.entities.SubscriptionStatus;
+import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import ma.expertsci.subscriptions.service.SubscriptionService;
+
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,6 +41,74 @@ public class BillingService {
     private final PaymentTransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final SubscriptionService subscriptionService;
+    private final SubscriptionRepository subscriptionRepository;
+
+    /**
+     * Plan hierarchy — used to enforce upgrade-only rule.
+     * Higher index = higher tier. Downgrade is not allowed via payment.
+     */
+    private static final java.util.Map<PlanType, Integer> PLAN_ORDER = java.util.Map.of(
+            PlanType.TRIAL,      0,
+            PlanType.PREMIUM,    1,
+            PlanType.ENTERPRISE, 2
+    );
+
+    // ── Get current plan for billing page ─────────────────────────────────────
+
+    /**
+     * GET /api/billing/my-plan
+     *
+     * Returns everything the billing page needs to know about the user's
+     * current plan — owned by billing, not subscription.
+     */
+    public BillingPlanResponseDTO getMyPlan() {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "USER_NOT_FOUND", "No user found with email: " + email));
+
+        if (user.getCompany() == null) {
+            throw new ResourceNotFoundException(
+                    "COMPANY_NOT_FOUND", "User is not associated with any company.");
+        }
+
+        Subscription subscription = subscriptionRepository
+                .findByCompany(user.getCompany())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "SUBSCRIPTION_NOT_FOUND", "No subscription found for company: " + user.getCompany().getName()));
+
+        LocalDateTime now = LocalDateTime.now();
+        Long daysRemaining = null;
+        if (subscription.getEndDate() != null && subscription.getEndDate().isAfter(now)) {
+            daysRemaining = ChronoUnit.DAYS.between(now, subscription.getEndDate());
+        }
+
+        boolean active = subscription.getStatus() == SubscriptionStatus.ACTIVE
+                && (subscription.getEndDate() == null || subscription.getEndDate().isAfter(now));
+
+        return BillingPlanResponseDTO.builder()
+                .companyName(user.getCompany().getName())
+                .planType(subscription.getPlanType().name())
+                .planLabel(formatPlanLabel(subscription.getPlanType()))
+                .status(subscription.getStatus().name())
+                .startDate(subscription.getStartDate())
+                .endDate(subscription.getEndDate())
+                .daysRemaining(daysRemaining)
+                .active(active)
+                .currentPlanPrice(subscription.getPlanType().getPriceXOF())
+                .planOrder(PLAN_ORDER.getOrDefault(subscription.getPlanType(), 0))
+                .build();
+    }
+
+    private String formatPlanLabel(PlanType planType) {
+        switch (planType) {
+            case TRIAL:      return "Trial";
+            case PREMIUM:    return "Premium";
+            case ENTERPRISE: return "Enterprise";
+            default:         return planType.name();
+        }
+    }
 
     // ── Initiate a payment ────────────────────────────────────────────────────
 
@@ -59,10 +133,33 @@ public class BillingService {
                     "INVALID_PLAN", "Cannot initiate payment for a free plan: " + selectedPlan.name());
         }
 
-        // 3. Generate unique transaction ID — no special chars per CinetPay requirement
+        // 3. Enforce upgrade-only rule — check current subscription
+        subscriptionRepository.findByCompany(user.getCompany()).ifPresent(currentSub -> {
+            int currentOrder = PLAN_ORDER.getOrDefault(currentSub.getPlanType(), 0);
+            int selectedOrder = PLAN_ORDER.getOrDefault(selectedPlan, 0);
+
+            if (selectedOrder < currentOrder) {
+                throw new BusinessRuleViolationException(
+                        "DOWNGRADE_NOT_ALLOWED",
+                        "Downgrading from " + currentSub.getPlanType().name() +
+                                " to " + selectedPlan.name() + " is not allowed via payment. " +
+                                "Please contact support to request a downgrade.");
+            }
+
+            if (selectedOrder == currentOrder
+                    && currentSub.getStatus() == SubscriptionStatus.ACTIVE
+                    && currentSub.getEndDate() != null
+                    && currentSub.getEndDate().isAfter(LocalDateTime.now())) {
+                throw new BusinessRuleViolationException(
+                        "ALREADY_ON_PLAN",
+                        "You are already on the " + selectedPlan.name() + " plan with an active subscription.");
+            }
+        });
+
+        // 4. Generate unique transaction ID — no special chars per CinetPay requirement
         String transactionId = "TXN" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
 
-        // 4. Persist PENDING record before calling CinetPay
+        // 5. Persist PENDING record before calling CinetPay
         //    Ensures we have an audit trail even if the CinetPay call fails
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .transactionId(transactionId)
@@ -74,7 +171,7 @@ public class BillingService {
                 .build();
         transaction = transactionRepository.save(transaction);
 
-        // 5. Build the v1/payment request body
+        // 6. Build the v1/payment request body
         //    Note: no api_key or api_password here — auth is via Bearer token in the header,
         //    handled transparently by CinetPayClient → CinetPayTokenService
         CinetPayInitRequest cinetPayRequest = CinetPayInitRequest.builder()
@@ -96,7 +193,7 @@ public class BillingService {
                 .build();
 
         log.info("[Billing] notify_url being sent to CinetPay: {}", cinetPayConfig.getNotifyUrl());
-        // 6. Call CinetPay — on failure, mark transaction FAILED and rethrow
+        // 7. Call CinetPay — on failure, mark transaction FAILED and rethrow
         CinetPayInitResponse cinetPayResponse;
         try {
             cinetPayResponse = cinetPayClient.initiatePayment(cinetPayRequest);
@@ -107,7 +204,7 @@ public class BillingService {
             throw ex;
         }
 
-        // 7. Update record with the paymentToken for traceability
+        // 8. Update record with the paymentToken for traceability
         transaction.setCinetpayToken(cinetPayResponse.getPaymentToken());
         transactionRepository.save(transaction);
 

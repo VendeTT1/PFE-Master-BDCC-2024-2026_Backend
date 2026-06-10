@@ -3,9 +3,7 @@ package ma.expertsci.billing.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import ma.expertsci.billing.dto.*;
-import ma.expertsci.billing.service.BillingService;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import ma.expertsci.billing.service.BillingService;import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +17,22 @@ import java.util.List;
 public class BillingController {
 
     private final BillingService billingService;
+
+    /**
+     * GET /api/billing/my-plan
+     *
+     * Returns the current user's active plan with days remaining,
+     * status, and plan order for the billing page.
+     * This is the primary endpoint for the billing page — replaces
+     * the direct subscription endpoint for plan display purposes.
+     *
+     * Access: OWNER only
+     */
+    @GetMapping("/my-plan")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<BillingPlanResponseDTO> getMyPlan() {
+        return ResponseEntity.ok(billingService.getMyPlan());
+    }
 
     /**
      * POST /api/billing/initiate
@@ -83,12 +97,7 @@ public class BillingController {
      */
     @GetMapping("/admin/history")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Page<PaymentHistoryDTO>> getAllBillingHistory(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size)  {
-        size = Math.min(size, 50);
-
-        Pageable pageable = PageRequest.of(page, size);
+    public ResponseEntity<Page<PaymentHistoryDTO>> getAllBillingHistory(Pageable pageable) {
         return ResponseEntity.ok(billingService.getAllBillingHistoryForAdmin(pageable));
     }
 }
