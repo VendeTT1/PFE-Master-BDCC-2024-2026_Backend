@@ -10,11 +10,9 @@ import ma.expertsci.account.entities.user.UserStatus;
 import ma.expertsci.account.repository.CompanyRepository;
 import ma.expertsci.account.repository.UserRepository;
 import ma.expertsci.exception.BusinessRuleViolationException;
+import ma.expertsci.subscriptions.service.SubscriptionService;
 import ma.expertsci.exception.ForbiddenActionException;
 import ma.expertsci.exception.ResourceNotFoundException;
-import ma.expertsci.subscriptions.entities.Subscription;
-import ma.expertsci.subscriptions.repository.SubscriptionRepository;
-import ma.expertsci.subscriptions.service.SubscriptionService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,7 +22,6 @@ public class CompanyService {
 
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
-    private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionService subscriptionService;
 
     public Company getCurrentCompany(String email) {
@@ -75,6 +72,7 @@ public class CompanyService {
     public List<UserResponseDTO> getCompanyUsers(String email) {
 
         Company company = getCurrentCompany(email);
+
         return company.getUsers()
                 .stream()
                 .map(user -> UserResponseDTO.builder()
@@ -109,6 +107,9 @@ public class CompanyService {
 
         user.setStatus(UserStatus.INACTIVE);
         userRepository.save(user);
+
+        // Free up the user slot so a new member can be invited
+        subscriptionService.decrementActiveUsersSnapshot(company.getName());
     }
 
     public UserResponseDTO getUser(String email){

@@ -228,4 +228,32 @@ public class SubscriptionService {
         subscription.setActiveUsersSnapshot(subscription.getActiveUsersSnapshot() + 1);
         subscriptionRepository.save(subscription);
     }
+
+    /**
+     * Decrements the active user count when a user is deactivated.
+     * Called from CompanyService.deactivateCompanyUser() to keep the
+     * snapshot in sync — freeing up a slot so a new user can be invited.
+     *
+     * Floor is 1 (the owner always counts) — never goes below 1.
+     */
+    public void decrementActiveUsersSnapshot(String companyName) {
+
+        Company company = companyRepository.findByName(companyName);
+        if (company == null) {
+            throw new ResourceNotFoundException(
+                    SubscriptionErrorCodes.COMPANY_NOT_FOUND,
+                    "No company found with name: " + companyName);
+        }
+
+        Subscription subscription = subscriptionRepository
+                .findByCompany(company)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        SubscriptionErrorCodes.SUBSCRIPTION_NOT_FOUND,
+                        "No subscription found for company: " + companyName));
+
+        int current = subscription.getActiveUsersSnapshot();
+        // Floor at 1 — owner always occupies one slot
+        subscription.setActiveUsersSnapshot(Math.max(1, current - 1));
+        subscriptionRepository.save(subscription);
+    }
 }

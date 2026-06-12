@@ -16,7 +16,6 @@ import ma.expertsci.emailconf.service.EmailService;
 import ma.expertsci.exception.BusinessRuleViolationException;
 import ma.expertsci.exception.ExternalServiceException;
 import ma.expertsci.exception.ResourceAlreadyExistsException;
-import ma.expertsci.subscriptions.entities.PlanType;
 import ma.expertsci.subscriptions.entities.Subscription;
 import ma.expertsci.subscriptions.repository.SubscriptionRepository;
 import ma.expertsci.subscriptions.service.SubscriptionService;
@@ -49,8 +48,13 @@ public class InvitationService {
         }
 
         if (!canInviteStaff(company)) {
-            throw new BusinessRuleViolationException("STAFF_LIMIT_REACHED",
-                    "User limit reached for the trial period. Upgrade required.");
+            Subscription sub = subscriptionRepository.findByCompany(company)
+                    .orElseThrow(() -> new BusinessRuleViolationException(
+                            "SUBSCRIPTION_NOT_FOUND", "No subscription found."));
+            throw new BusinessRuleViolationException("USER_LIMIT_REACHED",
+                    "User limit reached for your " + sub.getPlanType().name() + " plan " +
+                            "(" + sub.getIncludedUsers() + " users included). " +
+                            "Upgrade your plan to invite more users.");
         }
 
 
@@ -146,18 +150,27 @@ public class InvitationService {
         }
     }
 
+    /**
+     * Checks whether the company can invite another staff member.
+     *
+     * Rules:
+     *  - activeUsersSnapshot tracks the current number of active users
+     *  - includedUsers is the ceiling defined by the plan (5 / 25 / 50)
+     *  - If activeUsersSnapshot >= includedUsers → block invitation
+     *  - extraUsers is reserved for a future paid-seat expansion milestone
+     *
+     * Works for ALL plan types — no hardcoded plan names or numbers here.
+     */
     public boolean canInviteStaff(Company company) {
         Subscription subscription = subscriptionRepository.findByCompany(company)
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+                .orElseThrow(() -> new BusinessRuleViolationException(
+                        "SUBSCRIPTION_NOT_FOUND",
+                        "No subscription found for company: " + company.getName()));
 
-        int activeUsers = userRepository.countByCompanyAndStatus(company, UserStatus.ACTIVE);
+        int activeUsers  = subscription.getActiveUsersSnapshot();
+        int allowedUsers = subscription.getIncludedUsers(); // comes from PlanType
 
-        // Allow only up to 5 users during trial
-        if (subscription.getPlanType() == PlanType.TRIAL && activeUsers >= 5) {
-            return false;  // Limit reached, block new invites
-        }
-
-        return true;  // Allow invites if under limit
+        return activeUsers < allowedUsers;
     }
 
 }
