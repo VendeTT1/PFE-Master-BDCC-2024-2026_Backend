@@ -60,12 +60,25 @@ public class InstanceService {
         String instanceName = company.getName();
 
         // ── Rule 1: One instance per company ─────────────────────────────────
-        if (!instanceRepository.findByCompany(company).isEmpty()) {
+        // Only RUNNING or STOPPED instances count — CREATING and ERROR are
+        // failed/incomplete attempts and must not block a retry.
+        boolean hasActiveInstance = instanceRepository.findByCompany(company)
+                .stream()
+                .anyMatch(i -> i.getStatus() == InstanceStatus.RUNNING
+                        || i.getStatus() == InstanceStatus.STOPPED);
+
+        if (hasActiveInstance) {
             throw new BusinessRuleViolationException(
                     InstanceErrorCodes.INSTANCE_ALREADY_EXISTS,
                     "Company '" + instanceName + "' already has an instance. " +
                             "Only one instance per company is allowed.");
         }
+
+        // Clean up any stale CREATING or ERROR records from previous failed attempts
+        // so they don't accumulate in the DB
+        instanceRepository.deleteByCompanyAndStatusIn(
+                company,
+                java.util.List.of(InstanceStatus.CREATING, InstanceStatus.ERROR));
 
         // ── Rule 2: Subscription must be active to create an instance ─────────
         subscriptionRepository.findByCompany(company).ifPresent(sub -> {
@@ -90,12 +103,12 @@ public class InstanceService {
         Instance instance = new Instance();
         instance.setName(instanceName);
         instance.setCompany(company);
-        instance.setModules(request.modules());   // persist selected modules
+        instance.setModules(request.modules());
         instance.setStatus(InstanceStatus.CREATING);
-        instanceRepository.save(instance);
+        // NOTE: NOT saving to DB yet — we only persist once Docker succeeds
+        // This prevents stale CREATING records from blocking future retries
 
         try {
-            // Pass the user-selected module list down to the Docker layer
             DockerResultDTO result = dockerService.startInstance(instanceName, request.modules());
 
             instance.setDockerContainerId(result.getAppContainerId());
@@ -104,20 +117,18 @@ public class InstanceService {
             instance.setStatus(InstanceStatus.RUNNING);
 
         } catch (ExternalServiceException e) {
-            instance.setStatus(InstanceStatus.ERROR);
+            // Do NOT save — let the user retry cleanly
             e.printStackTrace();
-//            instanceRepository.save(instance);
             throw e;
         } catch (Exception e) {
-            instance.setStatus(InstanceStatus.ERROR);
             e.printStackTrace();
-//            instanceRepository.save(instance);
             throw new ExternalServiceException(
                     InstanceErrorCodes.DOCKER_START_FAILED,
                     "Failed to start Docker instance '" + instanceName + "'.",
                     e);
         }
 
+        // Only reaches here on full success — all required fields are populated
         instanceRepository.save(instance);
         return mapToResponse(instance);
     }

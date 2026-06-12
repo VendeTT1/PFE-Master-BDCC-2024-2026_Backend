@@ -58,17 +58,18 @@ public class DockerService {
             );
         }
 
-        // ── 2. Guard: instance already exists for this company ────────────────
-        // This is a safety net — InstanceService.createInstance() already checks
-        // this before calling Docker. This stops any direct DockerService calls.
-        boolean alreadyExists = instanceRepository.findByCompany(
-                companyRepository.findByName(instanceName)) != null
-                && !instanceRepository.findByCompany(
-                companyRepository.findByName(instanceName)).isEmpty();
+        // ── 2. Safety net: block if a real instance already exists ───────────
+        boolean alreadyExists = !instanceRepository
+                .findByCompany(companyRepository.findByName(instanceName))
+                .stream()
+                .filter(i -> i.getStatus() == ma.expertsci.instances.entities.InstanceStatus.RUNNING
+                        || i.getStatus() == ma.expertsci.instances.entities.InstanceStatus.STOPPED)
+                .toList()
+                .isEmpty();
         if (alreadyExists) {
             throw new ExternalServiceException(
                     InstanceErrorCodes.DOCKER_ERROR,
-                    "An instance already exists for company '" + instanceName + "'. Aborting.",
+                    "A running instance already exists for company '" + instanceName + "'. Aborting.",
                     null
             );
         }
@@ -267,12 +268,60 @@ public class DockerService {
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
+     * Maps frontend module keys to their exact Odoo 18 technical names.
+     *
+     * Frontend keys (left) are what the instance creation form sends.
+     * Odoo names (right) are what gets passed to `odoo -i`.
+     *
+     * Keys that are already correct Odoo names map to themselves.
+     * Odoo silently ignores unknown names — this map catches mistakes early.
+     */
+    private static final java.util.Map<String, String> MODULE_NAME_MAP =
+            java.util.Map.ofEntries(
+                    // ── Frontend catalog keys (current) ──────────────────────────
+                    java.util.Map.entry("sale_management",    "sale_management"),
+                    java.util.Map.entry("purchase",           "purchase"),
+                    java.util.Map.entry("stock",              "stock"),
+                    java.util.Map.entry("point_of_sale",      "point_of_sale"),
+                    java.util.Map.entry("account_accountant", "account_accountant"),
+                    java.util.Map.entry("hr",                 "hr"),
+                    java.util.Map.entry("saas_sso",           "saas_sso"),
+
+                    // ── Legacy / alternative keys kept for safety ─────────────────
+                    java.util.Map.entry("sale",               "sale_management"),
+                    java.util.Map.entry("sales",              "sale_management"),
+                    java.util.Map.entry("inventory",          "stock"),
+                    java.util.Map.entry("account",            "account"),
+                    java.util.Map.entry("accounting",         "account_accountant"),
+                    java.util.Map.entry("invoicing",          "account"),
+                    java.util.Map.entry("pos",                "point_of_sale"),
+
+                    // ── Extended catalog (add to frontend as needed) ───────────────
+                    java.util.Map.entry("crm",                "crm"),
+                    java.util.Map.entry("project",            "project"),
+                    java.util.Map.entry("hr_payroll",         "hr_payroll"),
+                    java.util.Map.entry("payroll",            "hr_payroll"),
+                    java.util.Map.entry("hr_timesheet",       "hr_timesheet"),
+                    java.util.Map.entry("timesheet",          "hr_timesheet"),
+                    java.util.Map.entry("hr_expense",         "hr_expense"),
+                    java.util.Map.entry("expenses",           "hr_expense"),
+                    java.util.Map.entry("mrp",                "mrp"),
+                    java.util.Map.entry("manufacturing",      "mrp"),
+                    java.util.Map.entry("helpdesk",           "helpdesk"),
+                    java.util.Map.entry("website",            "website"),
+                    java.util.Map.entry("website_sale",       "website_sale"),
+                    java.util.Map.entry("ecommerce",          "website_sale")
+            );
+
+    /**
      * Builds the comma-separated module string to pass to {@code odoo -i}.
      * Rules:
      * <ul>
      *   <li>"base" is always the first entry.</li>
-     *   <li>Any non-blank, non-duplicate key from {@code requestedModules} is appended.</li>
-     *   <li>"saas_sso" is always appended last if it was not already present.</li>
+     *   <li>Each requested module key is translated via MODULE_NAME_MAP.</li>
+     *   <li>Unknown keys are logged as warnings and skipped — not silently passed
+     *       to Odoo where they would be ignored without feedback.</li>
+     *   <li>"saas_sso" is always appended last if not already present.</li>
      * </ul>
      */
     private String buildModuleList(List<String> requestedModules) {
@@ -280,16 +329,32 @@ public class DockerService {
         modules.add("base");
 
         if (requestedModules != null) {
-            requestedModules.stream()
-                    .filter(m -> m != null && !m.isBlank() && !m.equals("base"))
-                    .forEach(modules::add);
+            for (String raw : requestedModules) {
+                if (raw == null || raw.isBlank() || raw.equals("base")) continue;
+
+                String normalized = raw.trim().toLowerCase();
+                String odooName = MODULE_NAME_MAP.getOrDefault(normalized, null);
+
+                if (odooName == null) {
+                    // Unknown module — log and skip rather than passing garbage to Odoo
+                    System.err.println("[DockerService] WARNING: Unknown module key '" + raw +
+                            "' — skipping. Add it to MODULE_NAME_MAP if valid.");
+                    continue;
+                }
+
+                if (!modules.contains(odooName)) {
+                    modules.add(odooName);
+                }
+            }
         }
 
         if (!modules.contains("saas_sso")) {
             modules.add("saas_sso");
         }
 
-        return String.join(",", modules);
+        String result = String.join(",", modules);
+        System.out.println("[DockerService] Installing modules: " + result);
+        return result;
     }
 
     /**
