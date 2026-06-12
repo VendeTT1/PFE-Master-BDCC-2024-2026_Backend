@@ -11,5 +11,5 @@ public class CompanyResponseDTO {
     private String name;
     private String region;
     private String ownerEmail;
-    private int usersCount;
+    private Long usersCount;
 }

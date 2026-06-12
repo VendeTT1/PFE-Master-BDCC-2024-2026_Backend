@@ -48,25 +48,8 @@ public class CompanyService {
                 .name(company.getName())
                 .region(company.getCountry())
                 .ownerEmail(owner.getEmail())
-                .usersCount(company.getUsers().size())
+                .usersCount(company.getUsers().stream().count())
                 .build();
-    }
-
-    public CompanyResponseDTO updateCompany(String email, UpdateCompanyDTO request) {
-
-        Company company = getCurrentCompany(email);
-
-        if (request.getName() != null) {
-            company.setName(request.getName());
-        }
-
-        if (request.getRegion() != null) {
-            company.setCountry(request.getRegion());
-        }
-
-        companyRepository.save(company);
-
-        return getCompanyDetails(email);
     }
 
     public List<UserResponseDTO> getCompanyUsers(String email) {
