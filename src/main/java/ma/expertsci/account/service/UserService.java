@@ -44,9 +44,15 @@ public class UserService {
                         "User with id " + id + " not found"));
     }
 
-    public void deleteUser(Long id) {
+    public void setUserInactive(Long id) {
         User userToInactive = userRepository.getReferenceById(id);
         userToInactive.setStatus(UserStatus.INACTIVE);
+        userRepository.save(userToInactive);
+    }
+
+    public void setUserActive(Long id) {
+        User userToInactive = userRepository.getReferenceById(id);
+        userToInactive.setStatus(UserStatus.ACTIVE);
         userRepository.save(userToInactive);
     }
 }

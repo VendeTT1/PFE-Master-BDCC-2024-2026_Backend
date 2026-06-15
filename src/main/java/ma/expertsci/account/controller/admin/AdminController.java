@@ -55,9 +55,16 @@ public class AdminController {
 
         // Delete user by ID, accessible only by Admin role
         @PreAuthorize("hasRole('ADMIN')")
-        @DeleteMapping("/user/{id}")
-        public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-            userService.deleteUser(id);
+        @DeleteMapping("/inactive/user/{id}")
+        public ResponseEntity<Void> setUserInactive(@PathVariable Long id) {
+            userService.setUserInactive(id);
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        }
+
+        @PreAuthorize("hasRole('ADMIN')")
+        @PatchMapping("/activate/user/{id}")
+        public ResponseEntity<Void> setUserActive(@PathVariable Long id) {
+            userService.setUserActive(id);
             return new ResponseEntity<>(HttpStatus.NO_CONTENT);
         }
 
