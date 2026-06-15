@@ -20,6 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -116,6 +117,12 @@ public class SubscriptionService {
                         SubscriptionErrorCodes.SUBSCRIPTION_NOT_FOUND,
                         "No subscription found for company: " + user.getCompany().getName()));
 
+        LocalDateTime now = LocalDateTime.now();
+        Long daysRemaining = null;
+        if (subscription.getEndDate() != null && subscription.getEndDate().isAfter(now)) {
+            daysRemaining = ChronoUnit.DAYS.between(now, subscription.getEndDate());
+        }
+
         return SubscriptionResponseDTO.builder()
                 .companyName(subscription.getCompany().getName())
                 .planType(subscription.getPlanType().name())
@@ -123,6 +130,7 @@ public class SubscriptionService {
                 .startDate(subscription.getStartDate())
                 .endDate(subscription.getEndDate())
                 .userEmail(user.getEmail())
+                .daysRemaining(daysRemaining)
                 .build();
     }
 

@@ -16,4 +16,5 @@ public class SubscriptionResponseDTO {
     private LocalDateTime endDate;
     private String companyName;
     private String userEmail;
+    private Long daysRemaining;
 }
